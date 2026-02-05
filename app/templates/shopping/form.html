@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Editar lista' if shopping_list else 'Nueva lista' }} - Recetas Chiquitas{% endblock %}
+
+{% block content %}
+<h1>{{ 'Editar lista' if shopping_list else 'Nueva lista' }}</h1>
+
+<form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="mb-3">
+        <label for="name" class="form-label">Nombre</label>
+        <input type="text" class="form-control" id="name" name="name"
+               value="{{ shopping_list.name if shopping_list else 'Lista de compras' }}" required>
+    </div>
+    {% if shopping_list %}
+    <button type="submit" class="btn btn-primary">Guardar</button>
+    <a href="{{ url_for('shopping.detail', id=shopping_list.id) }}" class="btn btn-secondary">Cancelar</a>
+    {% else %}
+    <button type="submit" class="btn btn-primary">Crear lista</button>
+    <a href="{{ url_for('shopping.list') }}" class="btn btn-secondary">Cancelar</a>
+    {% endif %}
+</form>
+{% endblock %}

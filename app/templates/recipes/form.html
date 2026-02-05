@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Editar receta' if recipe else 'Nueva receta' }} - Recetas Chiquitas{% endblock %}
+
+{% block content %}
+<h1>{{ 'Editar receta' if recipe else 'Nueva receta' }}</h1>
+
+<form method="post" enctype="multipart/form-data" novalidate>
+    {{ form.hidden_tag() }}
+
+    <div class="mb-3">
+        {{ form.title.label(class="form-label") }}
+        {{ form.title(class="form-control" + (" is-invalid" if form.title.errors else "")) }}
+        {% if form.title.errors %}
+        <div class="invalid-feedback">{{ form.title.errors[0] }}</div>
+        {% endif %}
+    </div>
+    <div class="mb-3">
+        {{ form.description.label(class="form-label") }}
+        {{ form.description(class="form-control", rows=2) }}
+    </div>
+    <div class="mb-3">
+        {{ form.instructions.label(class="form-label") }}
+        {{ form.instructions(class="form-control", rows=6) }}
+    </div>
+
+    <h5>Ingredientes</h5>
+    <div id="ingredients-container" class="mb-3">
+        {% if recipe %}
+        {% for ing in recipe.ingredients %}
+        <div class="ingredient-row row g-2 mb-2">
+            <div class="col-md-2">
+                <input type="text" name="ingredient_quantity" class="form-control" placeholder="Cantidad" value="{{ ing.quantity }}">
+            </div>
+            <div class="col-md-2">
+                <input type="text" name="ingredient_unit" class="form-control" placeholder="Unidad" value="{{ ing.unit }}">
+            </div>
+            <div class="col-md-7">
+                <input type="text" name="ingredient_name" class="form-control" placeholder="Nombre del ingrediente" value="{{ ing.name }}" required>
+            </div>
+            <div class="col-md-1">
+                <button type="button" class="btn btn-outline-danger btn-remove-ingredient">−</button>
+            </div>
+        </div>
+        {% endfor %}
+        {% endif %}
+    </div>
+    <button type="button" id="add-ingredient" class="btn btn-outline-secondary btn-sm mb-4">+ Añadir ingrediente</button>
+
+    <h5>Imágenes</h5>
+    {% if recipe and recipe.images.count() > 0 %}
+    <div class="mb-3">
+        {% for img in recipe.images %}
+        <div class="d-inline-block me-2 mb-2 position-relative">
+            <img src="{{ url_for('recipes.serve_image', recipe_id=recipe.id, filename=img.filename) }}"
+                 class="img-thumbnail" style="height: 80px; width: auto;">
+            <label class="position-absolute top-0 start-0 m-1">
+                <input type="checkbox" name="remove_image" value="{{ img.id }}"> Quitar
+            </label>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+    <div class="mb-3">
+        <input type="file" name="images" class="form-control" multiple accept="image/*">
+    </div>
+
+    {{ form.submit(class="btn btn-primary") }}
+    <a href="{{ url_for('recipes.detail', id=recipe.id) if recipe else url_for('recipes.list') }}" class="btn btn-secondary">Cancelar</a>
+</form>
+
+<template id="ingredient-row-template">
+    <div class="ingredient-row row g-2 mb-2">
+        <div class="col-md-2">
+            <input type="text" name="ingredient_quantity" class="form-control" placeholder="Cantidad">
+        </div>
+        <div class="col-md-2">
+            <input type="text" name="ingredient_unit" class="form-control" placeholder="Unidad">
+        </div>
+        <div class="col-md-7">
+            <input type="text" name="ingredient_name" class="form-control" placeholder="Nombre del ingrediente" required>
+        </div>
+        <div class="col-md-1">
+            <button type="button" class="btn btn-outline-danger btn-remove-ingredient">−</button>
+        </div>
+    </div>
+</template>
+
+{% block scripts %}
+{{ super() }}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const container = document.getElementById('ingredients-container');
+    const template = document.getElementById('ingredient-row-template');
+    const addBtn = document.getElementById('add-ingredient');
+
+    addBtn.onclick = function() {
+        const row = template.content.cloneNode(true);
+        container.appendChild(row);
+    };
+
+    container.addEventListener('click', function(e) {
+        if (e.target.classList.contains('btn-remove-ingredient')) {
+            e.target.closest('.ingredient-row').remove();
+        }
+    });
+
+    // Ensure at least one ingredient row for new recipes
+    {% if not recipe %}
+    if (!document.querySelector('.ingredient-row')) addBtn.click();
+    {% endif %}
+});
+</script>
+{% endblock %}
+{% endblock %}

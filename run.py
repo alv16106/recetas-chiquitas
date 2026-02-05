@@ -1,0 +1,20 @@
+import os
+
+from app import create_app
+from app.models import db
+
+app = create_app()
+port = int(os.environ.get("PORT", 5000))
+
+@app.shell_context_processor
+def make_shell_context():
+    return {"db": db}
+
+
+if __name__ == "__main__":
+    with app.app_context():
+        os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+        db_path = app.config["SQLALCHEMY_DATABASE_URI"].replace("sqlite:///", "")
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        db.create_all()
+    app.run(debug=True, port=port)

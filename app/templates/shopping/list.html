@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+
+{% block title %}Listas de compras - Recetas Chiquitas{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Listas de compras</h1>
+    <a href="{{ url_for('shopping.add') }}" class="btn btn-primary">Nueva lista</a>
+</div>
+
+{% if lists %}
+<ul class="list-group">
+    {% for sl in lists %}
+    <li class="list-group-item d-flex justify-content-between align-items-center">
+        <a href="{{ url_for('shopping.detail', id=sl.id) }}" class="text-decoration-none">{{ sl.name }}</a>
+        <span class="badge bg-secondary rounded-pill">{{ sl.items.count() }} ítems</span>
+    </li>
+    {% endfor %}
+</ul>
+{% else %}
+<p class="text-muted">No tienes listas de compras. <a href="{{ url_for('shopping.add') }}">Crea la primera</a> o añade ingredientes desde una receta.</p>
+{% endif %}
+{% endblock %}

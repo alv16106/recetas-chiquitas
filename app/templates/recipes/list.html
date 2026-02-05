@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+
+{% block title %}Recetas - Recetas Chiquitas{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Mis recetas</h1>
+    <a href="{{ url_for('recipes.add') }}" class="btn btn-primary">Nueva receta</a>
+</div>
+
+{% if recipes %}
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+    {% for recipe in recipes %}
+    <div class="col">
+        <div class="card h-100">
+            {% if recipe.images.first() %}
+            <img src="{{ url_for('recipes.serve_image', recipe_id=recipe.id, filename=recipe.images.first().filename) }}"
+                 class="card-img-top" alt="{{ recipe.title }}" style="height: 200px; object-fit: cover;">
+            {% else %}
+            <div class="card-img-top bg-light d-flex align-items-center justify-content-center" style="height: 200px;">
+                <span class="text-muted">Sin imagen</span>
+            </div>
+            {% endif %}
+            <div class="card-body d-flex flex-column">
+                <h5 class="card-title">{{ recipe.title }}</h5>
+                <p class="card-text text-muted small flex-grow-1">
+                    {{ recipe.description[:100] + '...' if recipe.description and recipe.description|length > 100 else recipe.description or 'Sin descripción' }}
+                </p>
+                <a href="{{ url_for('recipes.detail', id=recipe.id) }}" class="btn btn-outline-primary btn-sm">Ver receta</a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<p class="text-muted">No tienes recetas todavía. <a href="{{ url_for('recipes.add') }}">Crea la primera</a>.</p>
+{% endif %}
+{% endblock %}

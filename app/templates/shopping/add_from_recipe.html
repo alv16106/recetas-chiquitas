@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}Añadir a lista - {{ recipe.title }}{% endblock %}
+
+{% block content %}
+<h1>Añadir ingredientes a lista</h1>
+<p>Receta: <strong>{{ recipe.title }}</strong></p>
+
+<form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="mb-3">
+        <div class="form-check">
+            <input class="form-check-input" type="radio" name="mode" id="mode_existing" value="existing" checked
+                   onchange="document.getElementById('list_select').disabled=false; document.getElementById('new_name').disabled=true;">
+            <label class="form-check-label" for="mode_existing">Añadir a lista existente</label>
+        </div>
+        <select name="list_id" id="list_select" class="form-select mt-2">
+            <option value="">-- Selecciona una lista --</option>
+            {% for sl in lists %}
+            <option value="{{ sl.id }}">{{ sl.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="mb-3">
+        <div class="form-check">
+            <input class="form-check-input" type="radio" name="mode" id="mode_new" value="new"
+                   onchange="document.getElementById('list_select').disabled=true; document.getElementById('new_name').disabled=false;">
+            <label class="form-check-label" for="mode_new">Crear nueva lista</label>
+        </div>
+        <input type="text" class="form-control mt-2" name="new_list_name" id="new_name" placeholder="Nombre de la nueva lista" disabled>
+    </div>
+
+    <input type="hidden" name="create_new" id="create_new" value="0">
+
+    <p class="text-muted small">Se añadirán estos ingredientes:</p>
+    <ul class="list-group mb-4">
+        {% for ing in recipe.ingredients %}
+        <li class="list-group-item">
+            {% if ing.quantity or ing.unit %}{{ ing.quantity }} {{ ing.unit }} {% endif %}{{ ing.name }}
+        </li>
+        {% endfor %}
+    </ul>
+
+    <button type="submit" class="btn btn-primary">Añadir a lista</button>
+    <a href="{{ url_for('recipes.detail', id=recipe.id) }}" class="btn btn-secondary">Cancelar</a>
+</form>
+
+<script>
+document.querySelector('form').addEventListener('submit', function(e) {
+    const modeNew = document.getElementById('mode_new').checked;
+    document.getElementById('create_new').value = modeNew ? '1' : '0';
+    if (modeNew && !document.getElementById('new_name').value.trim()) {
+        e.preventDefault();
+        alert('Ingresa el nombre de la nueva lista.');
+        return false;
+    }
+    if (!modeNew && !document.getElementById('list_select').value) {
+        e.preventDefault();
+        alert('Selecciona una lista.');
+        return false;
+    }
+});
+</script>
+{% endblock %}

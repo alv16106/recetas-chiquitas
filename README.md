@@ -27,3 +27,29 @@ The app runs at http://127.0.0.1:5000/
 2. Create recipes with ingredients and optional images
 3. Use "Añadir a lista de compras" on a recipe to add its ingredients to a new or existing shopping list
 4. Check off items on your shopping list as you shop
+
+## Customization
+
+### Colors and look and feel
+
+Edit `app/static/css/custom.css` and change the CSS variables in the `:root` block:
+
+| Variable | Description |
+|----------|-------------|
+| `--theme-primary` | Primary brand color (navbar, primary buttons, links) |
+| `--theme-secondary` | Secondary buttons and accents |
+| `--theme-navbar-bg` | Navbar background (defaults to primary) |
+| `--theme-body-bg` | Page background |
+| `--theme-success` | Success buttons and highlights |
+| `--theme-danger` | Delete buttons and errors |
+| `--theme-font-family` | Font family |
+| `--theme-logo-height` | Logo height in navbar (e.g. 32px, 40px) |
+
+### Custom logo
+
+Replace `app/static/images/logo.png` with your own logo. Use PNG or SVG (rename to `logo.svg` and update the template if using SVG). Recommended size: 64x64 to 128x128 pixels.
+
+To show only the logo (hide the site name), add to `custom.css`:
+```css
+.navbar-brand-text { display: none; }
+```

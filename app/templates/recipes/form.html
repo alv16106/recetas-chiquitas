@@ -25,7 +25,7 @@
     </div>
 
     <h5>Ingredientes</h5>
-    <div id="ingredients-container" class="mb-3">
+    <div id="ingredients-container" class="mb-3" data-new-recipe="{{ 'true' if not recipe else 'false' }}">
         {% if recipe %}
         {% for ing in recipe.ingredients %}
         <div class="ingredient-row row g-2 mb-2">
@@ -106,9 +106,8 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Ensure at least one ingredient row for new recipes
-    {% if not recipe %}
-    if (!document.querySelector('.ingredient-row')) addBtn.click();
-    {% endif %}
+    var isNewRecipe = container.dataset.newRecipe === 'true';
+    if (isNewRecipe && !document.querySelector('.ingredient-row')) addBtn.click();
 });
 </script>
 {% endblock %}

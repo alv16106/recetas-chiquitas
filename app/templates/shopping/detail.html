@@ -21,10 +21,12 @@
                        {% if item.checked %}checked{% endif %}
                        onchange="this.form.submit()">
                 <label class="form-check-label" for="check_{{ item.id }}">
-                    {% if item.quantity or item.unit %}
-                    <strong>{{ item.quantity }} {{ item.unit }}</strong> {{ item.ingredient_name }}
+                    {% set iname = item.ingredient.name if item.ingredient else item.ingredient_name %}
+                    {% set ustr = (item.unit_obj.symbol or item.unit_obj.name) if item.unit_obj else item.unit %}
+                    {% if item.quantity or ustr %}
+                    <strong>{{ item.quantity }} {{ ustr }}</strong> {{ iname }}
                     {% else %}
-                    {{ item.ingredient_name }}
+                    {{ iname }}
                     {% endif %}
                 </label>
             </div>

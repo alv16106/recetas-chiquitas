@@ -7,7 +7,7 @@ from werkzeug.utils import secure_filename
 
 from app import db
 from app.forms import RecipeForm
-from app.models import Recipe, Ingredient, RecipeImage
+from app.models import Recipe, RecipeIngredient, RecipeImage, IngredientMaster, Unit
 
 bp = Blueprint("recipes", __name__)
 
@@ -25,6 +25,32 @@ def get_recipe_or_404(id):
     if recipe.user_id != current_user.id:
         abort(403)
     return recipe
+
+
+def get_or_create_ingredient(name):
+    if not name or not name.strip():
+        return None
+    ing = IngredientMaster.query.filter(IngredientMaster.name.ilike(name.strip())).first()
+    if not ing:
+        ing = IngredientMaster(name=name.strip())
+        db.session.add(ing)
+        db.session.flush()
+    return ing
+
+
+def get_or_create_unit(unit_id=None, unit_name=None):
+    if unit_id:
+        u = db.session.get(Unit, int(unit_id))
+        if u:
+            return u
+    if unit_name and unit_name.strip():
+        u = Unit.query.filter(Unit.name.ilike(unit_name.strip())).first()
+        if not u:
+            u = Unit(name=unit_name.strip(), symbol=unit_name.strip()[:10])
+            db.session.add(u)
+            db.session.flush()
+        return u
+    return Unit.query.filter_by(name="unidad").first()
 
 
 @bp.route("/")
@@ -54,21 +80,26 @@ def add():
             instructions=form.instructions.data or "",
         )
         db.session.add(recipe)
-        db.session.flush()  # Get recipe.id before adding ingredients/images
+        db.session.flush()
 
-        # Parse ingredients from form
-        for i in range(len(request.form.getlist("ingredient_name"))):
-            name = request.form.getlist("ingredient_name")[i]
+        unit_ids = request.form.getlist("ingredient_unit_id")
+        unit_names = request.form.getlist("ingredient_unit")
+        quantities = request.form.getlist("ingredient_quantity")
+        for i, name in enumerate(request.form.getlist("ingredient_name")):
             if name.strip():
-                ing = Ingredient(
-                    recipe_id=recipe.id,
-                    name=name.strip(),
-                    quantity=request.form.getlist("ingredient_quantity")[i] or "",
-                    unit=request.form.getlist("ingredient_unit")[i] or "",
-                )
-                db.session.add(ing)
+                ing = get_or_create_ingredient(name)
+                if ing:
+                    unit_id = unit_ids[i] if i < len(unit_ids) else None
+                    unit_name = unit_names[i] if i < len(unit_names) else None
+                    u = get_or_create_unit(unit_id=unit_id, unit_name=unit_name)
+                    ri = RecipeIngredient(
+                        recipe_id=recipe.id,
+                        ingredient_master_id=ing.id,
+                        unit_id=u.id if u else None,
+                        quantity=quantities[i] if i < len(quantities) else "",
+                    )
+                    db.session.add(ri)
 
-        # Handle image uploads
         for file in request.files.getlist("images"):
             if file and file.filename and allowed_file(file.filename):
                 ext = file.filename.rsplit(".", 1)[1].lower()
@@ -83,7 +114,8 @@ def add():
         db.session.commit()
         flash("Receta creada correctamente.", "success")
         return redirect(url_for("recipes.detail", id=recipe.id))
-    return render_template("recipes/form.html", form=form, recipe=None)
+    units = Unit.query.order_by(Unit.name).all()
+    return render_template("recipes/form.html", form=form, recipe=None, units=units)
 
 
 @bp.route("/<int:id>/edit", methods=["GET", "POST"])
@@ -96,20 +128,25 @@ def edit(id):
         recipe.description = form.description.data or ""
         recipe.instructions = form.instructions.data or ""
 
-        # Remove ingredients and re-add from form
-        Ingredient.query.filter_by(recipe_id=recipe.id).delete()
-        for i in range(len(request.form.getlist("ingredient_name"))):
-            name = request.form.getlist("ingredient_name")[i]
+        RecipeIngredient.query.filter_by(recipe_id=recipe.id).delete()
+        unit_ids = request.form.getlist("ingredient_unit_id")
+        unit_names = request.form.getlist("ingredient_unit")
+        quantities = request.form.getlist("ingredient_quantity")
+        for i, name in enumerate(request.form.getlist("ingredient_name")):
             if name.strip():
-                ing = Ingredient(
-                    recipe_id=recipe.id,
-                    name=name.strip(),
-                    quantity=request.form.getlist("ingredient_quantity")[i] or "",
-                    unit=request.form.getlist("ingredient_unit")[i] or "",
-                )
-                db.session.add(ing)
+                ing = get_or_create_ingredient(name)
+                if ing:
+                    unit_id = unit_ids[i] if i < len(unit_ids) else None
+                    unit_name = unit_names[i] if i < len(unit_names) else None
+                    u = get_or_create_unit(unit_id=unit_id, unit_name=unit_name)
+                    ri = RecipeIngredient(
+                        recipe_id=recipe.id,
+                        ingredient_master_id=ing.id,
+                        unit_id=u.id if u else None,
+                        quantity=quantities[i] if i < len(quantities) else "",
+                    )
+                    db.session.add(ri)
 
-        # Handle remove images
         remove_ids = request.form.getlist("remove_image")
         for img_id in remove_ids:
             try:
@@ -126,7 +163,6 @@ def edit(id):
             except (ValueError, TypeError):
                 pass
 
-        # Handle new image uploads
         for file in request.files.getlist("images"):
             if file and file.filename and allowed_file(file.filename):
                 ext = file.filename.rsplit(".", 1)[1].lower()
@@ -146,7 +182,8 @@ def edit(id):
         form.title.data = recipe.title
         form.description.data = recipe.description
         form.instructions.data = recipe.instructions
-    return render_template("recipes/form.html", form=form, recipe=recipe)
+    units = Unit.query.order_by(Unit.name).all()
+    return render_template("recipes/form.html", form=form, recipe=recipe, units=units)
 
 
 @bp.route("/<int:id>/delete", methods=["POST"])

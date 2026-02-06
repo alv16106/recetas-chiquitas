@@ -17,4 +17,9 @@ if __name__ == "__main__":
         db_path = app.config["SQLALCHEMY_DATABASE_URI"].replace("sqlite:///", "")
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
         db.create_all()
+        try:
+            from scripts.seed_units import seed_units
+            seed_units()
+        except ImportError:
+            pass
     app.run(debug=True, port=port)

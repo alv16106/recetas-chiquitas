@@ -27,16 +27,23 @@
     <h5>Ingredientes</h5>
     <div id="ingredients-container" class="mb-3" data-new-recipe="{{ 'true' if not recipe else 'false' }}">
         {% if recipe %}
-        {% for ing in recipe.ingredients %}
+        {% for ri in recipe.ingredients %}
         <div class="ingredient-row row g-2 mb-2">
             <div class="col-md-2">
-                <input type="text" name="ingredient_quantity" class="form-control" placeholder="Cantidad" value="{{ ing.quantity }}">
+                <input type="text" name="ingredient_quantity" class="form-control" placeholder="Cantidad" value="{{ ri.quantity }}">
             </div>
             <div class="col-md-2">
-                <input type="text" name="ingredient_unit" class="form-control" placeholder="Unidad" value="{{ ing.unit }}">
+                <select name="ingredient_unit_id" class="form-control form-select ingredient-unit-select">
+                    <option value="">—</option>
+                    {% for u in units %}
+                    <option value="{{ u.id }}" {% if ri.unit_id == u.id %}selected{% endif %}>{{ u.symbol or u.name }}</option>
+                    {% endfor %}
+                </select>
+                <input type="hidden" name="ingredient_unit" value="">
             </div>
-            <div class="col-md-7">
-                <input type="text" name="ingredient_name" class="form-control" placeholder="Nombre del ingrediente" value="{{ ing.name }}" required>
+            <div class="col-md-7 position-relative">
+                <input type="text" name="ingredient_name" class="form-control ingredient-autocomplete" placeholder="Buscar o añadir ingrediente" value="{{ ri.ingredient.name if ri.ingredient else '' }}" required autocomplete="off">
+                <div class="ingredient-suggestions list-group position-absolute w-100" style="z-index: 10; display: none;"></div>
             </div>
             <div class="col-md-1">
                 <button type="button" class="btn btn-outline-danger btn-remove-ingredient">−</button>
@@ -75,10 +82,17 @@
             <input type="text" name="ingredient_quantity" class="form-control" placeholder="Cantidad">
         </div>
         <div class="col-md-2">
-            <input type="text" name="ingredient_unit" class="form-control" placeholder="Unidad">
+            <select name="ingredient_unit_id" class="form-control form-select ingredient-unit-select">
+                <option value="">—</option>
+                {% for u in units %}
+                <option value="{{ u.id }}">{{ u.symbol or u.name }}</option>
+                {% endfor %}
+            </select>
+            <input type="hidden" name="ingredient_unit" value="">
         </div>
-        <div class="col-md-7">
-            <input type="text" name="ingredient_name" class="form-control" placeholder="Nombre del ingrediente" required>
+        <div class="col-md-7 position-relative">
+            <input type="text" name="ingredient_name" class="form-control ingredient-autocomplete" placeholder="Buscar o añadir ingrediente" required autocomplete="off">
+            <div class="ingredient-suggestions list-group position-absolute w-100" style="z-index: 10; display: none;"></div>
         </div>
         <div class="col-md-1">
             <button type="button" class="btn btn-outline-danger btn-remove-ingredient">−</button>
@@ -93,10 +107,12 @@ document.addEventListener('DOMContentLoaded', function() {
     const container = document.getElementById('ingredients-container');
     const template = document.getElementById('ingredient-row-template');
     const addBtn = document.getElementById('add-ingredient');
+    var debounceTimer;
 
     addBtn.onclick = function() {
         const row = template.content.cloneNode(true);
         container.appendChild(row);
+        attachAutocomplete(container.querySelector('.ingredient-row:last-child .ingredient-autocomplete'));
     };
 
     container.addEventListener('click', function(e) {
@@ -105,7 +121,47 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Ensure at least one ingredient row for new recipes
+    function attachAutocomplete(input) {
+        if (!input || input.dataset.autocompleteAttached) return;
+        input.dataset.autocompleteAttached = '1';
+        var suggestionsEl = input.closest('.position-relative').querySelector('.ingredient-suggestions');
+        input.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            var q = input.value.trim();
+            suggestionsEl.style.display = 'none';
+            suggestionsEl.innerHTML = '';
+            if (q.length < 2) return;
+            debounceTimer = setTimeout(function() {
+                fetch('/api/ingredients?q=' + encodeURIComponent(q) + '&limit=10')
+                    .then(function(r) { return r.json(); })
+                    .then(function(items) {
+                        suggestionsEl.innerHTML = '';
+                        items.forEach(function(item) {
+                            var a = document.createElement('a');
+                            a.href = '#';
+                            a.className = 'list-group-item list-group-item-action';
+                            a.textContent = item.name;
+                            a.addEventListener('click', function(e) {
+                                e.preventDefault();
+                                input.value = item.name;
+                                suggestionsEl.style.display = 'none';
+                            });
+                            suggestionsEl.appendChild(a);
+                        });
+                        if (items.length) suggestionsEl.style.display = 'block';
+                    });
+            }, 200);
+        });
+        input.addEventListener('blur', function() {
+            setTimeout(function() { suggestionsEl.style.display = 'none'; }, 150);
+        });
+        input.addEventListener('focus', function() {
+            if (suggestionsEl.children.length) suggestionsEl.style.display = 'block';
+        });
+    }
+
+    container.querySelectorAll('.ingredient-autocomplete').forEach(attachAutocomplete);
+
     var isNewRecipe = container.dataset.newRecipe === 'true';
     if (isNewRecipe && !document.querySelector('.ingredient-row')) addBtn.click();
 });

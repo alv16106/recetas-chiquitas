@@ -2,32 +2,52 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from flask_login import login_required, current_user
 
 from app import db
-from app.models import Recipe, ShoppingList, ShoppingListItem
+from app.models import Recipe, RecipeIngredient, ShoppingList, ShoppingListItem, IngredientMaster, Unit
 
 bp = Blueprint("shopping", __name__)
 
 
-def merge_ingredient(existing_items, name, quantity, unit):
-    """Merge ingredient into existing items. Same name+unit gets quantities merged."""
-    name_lower = name.strip().lower()
-    unit_normalized = (unit or "").strip().lower()
+def merge_ingredient(existing_items, ingredient_master_id, unit_id, quantity):
+    """Merge by ingredient_master_id + unit_id. Numeric quantities add together."""
     for item in existing_items:
-        if item.ingredient_name.strip().lower() == name_lower and (item.unit or "").strip().lower() == unit_normalized:
-            # Try to merge numeric quantities
+        if item.ingredient_master_id == ingredient_master_id and item.unit_id == unit_id:
             try:
                 q1 = float(item.quantity or 0)
                 q2 = float(quantity or 0)
                 item.quantity = str(q1 + q2)
                 return
             except (ValueError, TypeError):
-                # Non-numeric: append as separate or keep both
                 item.quantity = f"{item.quantity} + {quantity}" if item.quantity and quantity else (item.quantity or quantity)
                 return
-    # New item
+    return ShoppingListItem(
+        ingredient_master_id=ingredient_master_id,
+        unit_id=unit_id,
+        ingredient_name=None,
+        quantity=quantity or "",
+        unit=None,
+    )
+
+
+def merge_ingredient_legacy(existing_items, name, quantity, unit_str):
+    """Fallback for string-based merge (legacy)."""
+    name_lower = name.strip().lower()
+    unit_norm = (unit_str or "").strip().lower()
+    for item in existing_items:
+        iname = (item.ingredient_name or "").strip().lower()
+        ustr = (item.unit or "").strip().lower()
+        if iname == name_lower and ustr == unit_norm:
+            try:
+                q1 = float(item.quantity or 0)
+                q2 = float(quantity or 0)
+                item.quantity = str(q1 + q2)
+                return
+            except (ValueError, TypeError):
+                item.quantity = f"{item.quantity} + {quantity}" if item.quantity and quantity else (item.quantity or quantity)
+                return
     return ShoppingListItem(
         ingredient_name=name.strip(),
         quantity=quantity or "",
-        unit=unit or "",
+        unit=unit_str or "",
     )
 
 
@@ -64,7 +84,6 @@ def edit(id):
     sl = ShoppingList.query.filter_by(id=id, user_id=current_user.id).first_or_404()
     if request.method == "POST":
         sl.name = request.form.get("name", sl.name).strip() or sl.name
-        # Update checked state for each item
         for item in sl.items:
             key = f"checked_{item.id}"
             item.checked = key in request.form
@@ -108,8 +127,18 @@ def add_from_recipe(recipe_id):
             return render_template("shopping/add_from_recipe.html", recipe=recipe, lists=lists)
 
         existing = list(sl.items)
-        for ing in recipe.ingredients:
-            new_item = merge_ingredient(existing, ing.name, ing.quantity, ing.unit)
+        for ri in recipe.ingredients:
+            if ri.ingredient_master_id and ri.ingredient:
+                new_item = merge_ingredient(
+                    existing,
+                    ri.ingredient_master_id,
+                    ri.unit_id,
+                    ri.quantity,
+                )
+            else:
+                name = ri.ingredient.name if ri.ingredient else ""
+                unit_str = (ri.unit.symbol or ri.unit.name) if ri.unit else ""
+                new_item = merge_ingredient_legacy(existing, name, ri.quantity, unit_str)
             if new_item:
                 new_item.shopping_list_id = sl.id
                 db.session.add(new_item)

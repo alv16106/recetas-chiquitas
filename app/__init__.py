@@ -33,10 +33,13 @@ def create_app(config_class=Config):
     from app.auth import bp as auth_bp
     from app.recipes import bp as recipes_bp
     from app.shopping import bp as shopping_bp
+    from app.api import bp as api_bp
 
     app.register_blueprint(auth_bp, url_prefix="/auth")
     app.register_blueprint(recipes_bp, url_prefix="/recipes")
     app.register_blueprint(shopping_bp, url_prefix="/shopping")
+    app.register_blueprint(api_bp)
+    csrf.exempt(api_bp)
 
     @app.route("/")
     def index():

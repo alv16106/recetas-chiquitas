@@ -31,19 +31,19 @@
 
 <h4>Ingredientes</h4>
 <ul class="list-group mb-4">
-    {% for ing in recipe.ingredients %}
+    {% for ri in recipe.ingredients %}
     <li class="list-group-item">
-        {% if ing.quantity or ing.unit %}
-        <strong>{{ ing.quantity }} {{ ing.unit }}</strong> {{ ing.name }}
+        {% if ri.quantity or ri.unit %}
+        <strong>{{ ri.quantity }} {{ (ri.unit.symbol or ri.unit.name) if ri.unit else '' }}</strong> {{ ri.ingredient.name if ri.ingredient else '' }}
         {% else %}
-        {{ ing.name }}
+        {{ ri.ingredient.name if ri.ingredient else '' }}
         {% endif %}
     </li>
     {% endfor %}
 </ul>
 
 <h4>Instrucciones</h4>
-<div class="whitespace-pre-wrap">{{ recipe.instructions or 'Sin instrucciones.' }}</div>
+<div class="recipe-instructions">{{ recipe.instructions or 'Sin instrucciones.' }}</div>
 
 <!-- Delete confirmation modal -->
 <div class="modal fade" id="deleteModal" tabindex="-1">

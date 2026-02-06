@@ -6,7 +6,7 @@ A simple household recipe web app with user authentication, recipe management, i
 
 - **Authentication**: Register and login with username and password
 - **Recipes**: Add, edit, and delete recipes with title, description, and instructions
-- **Ingredients**: Each recipe has ingredient lists (quantity, unit, name)
+- **Ingredients**: Searchable, saved ingredients with units; quantities merge correctly in shopping lists
 - **Images**: Upload multiple images per recipe
 - **Shopping lists**: Create lists and add ingredients from recipes; quantities merge for matching ingredients
 
@@ -53,3 +53,13 @@ To show only the logo (hide the site name), add to `custom.css`:
 ```css
 .navbar-brand-text { display: none; }
 ```
+
+## Migration (existing data)
+
+If you have existing recipes from before the units/ingredients entity update, run:
+
+```bash
+python scripts/migrate_to_entities.py
+```
+
+Back up your database first (`cp instance/recetas.db instance/recetas.db.bak`).

@@ -34,9 +34,9 @@
 
     <p class="text-muted small">Se añadirán estos ingredientes:</p>
     <ul class="list-group mb-4">
-        {% for ing in recipe.ingredients %}
+        {% for ri in recipe.ingredients %}
         <li class="list-group-item">
-            {% if ing.quantity or ing.unit %}{{ ing.quantity }} {{ ing.unit }} {% endif %}{{ ing.name }}
+            {% if ri.quantity or ri.unit %}{{ ri.quantity }} {{ (ri.unit.symbol or ri.unit.name) if ri.unit else '' }} {% endif %}{{ ri.ingredient.name if ri.ingredient else '' }}
         </li>
         {% endfor %}
     </ul>

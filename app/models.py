@@ -45,6 +45,20 @@ class IngredientMaster(db.Model):
     name = db.Column(db.String(200), unique=True, nullable=False)
 
 
+class Tag(db.Model):
+    __tablename__ = "tags"
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), unique=True, nullable=False)
+
+
+# Association table for Recipe <-> Tag many-to-many
+recipe_tags = db.Table(
+    "recipe_tags",
+    db.Column("recipe_id", db.Integer, db.ForeignKey("recipes.id"), primary_key=True),
+    db.Column("tag_id", db.Integer, db.ForeignKey("tags.id"), primary_key=True),
+)
+
+
 class Recipe(db.Model):
     __tablename__ = "recipes"
     id = db.Column(db.Integer, primary_key=True)
@@ -59,6 +73,7 @@ class Recipe(db.Model):
         "RecipeIngredient", backref="recipe", lazy="dynamic", cascade="all, delete-orphan"
     )
     images = db.relationship("RecipeImage", backref="recipe", lazy="dynamic", cascade="all, delete-orphan")
+    tags = db.relationship("Tag", secondary=recipe_tags, backref=db.backref("recipes", lazy="dynamic"))
 
 
 class RecipeIngredient(db.Model):
@@ -69,6 +84,7 @@ class RecipeIngredient(db.Model):
     ingredient_master_id = db.Column(db.Integer, db.ForeignKey("ingredient_masters.id"), nullable=False)
     unit_id = db.Column(db.Integer, db.ForeignKey("units.id"))
     quantity = db.Column(db.String(50))
+    optional = db.Column(db.Boolean, default=False)
 
     ingredient = db.relationship("IngredientMaster", backref="recipe_ingredients")
     unit = db.relationship("Unit", backref="recipe_ingredients")

@@ -3,10 +3,17 @@
 {% block title %}Recetas - Recetas Chiquitas{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h1>Mis recetas</h1>
+<div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+    <h1 class="mb-0">Mis recetas</h1>
     <a href="{{ url_for('recipes.add') }}" class="btn btn-primary">Nueva receta</a>
 </div>
+
+<form method="get" action="{{ url_for('recipes.list') }}" class="mb-4">
+    <div class="input-group">
+        <input type="search" name="q" class="form-control" placeholder="Buscar por nombre, ingrediente o etiqueta..." value="{{ search_query or '' }}" aria-label="Buscar recetas">
+        <button type="submit" class="btn btn-outline-secondary">Buscar</button>
+    </div>
+</form>
 
 {% if recipes %}
 <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
@@ -23,6 +30,13 @@
             {% endif %}
             <div class="card-body d-flex flex-column">
                 <h5 class="card-title">{{ recipe.title }}</h5>
+                {% if recipe.tags %}
+                <p class="mb-1">
+                    {% for tag in recipe.tags %}
+                    <span class="badge bg-secondary badge-sm me-1">{{ tag.name }}</span>
+                    {% endfor %}
+                </p>
+                {% endif %}
                 <p class="card-text text-muted small flex-grow-1">
                     {{ recipe.description[:100] + '...' if recipe.description and recipe.description|length > 100 else recipe.description or 'Sin descripción' }}
                 </p>
@@ -33,6 +47,12 @@
     {% endfor %}
 </div>
 {% else %}
-<p class="text-muted">No tienes recetas todavía. <a href="{{ url_for('recipes.add') }}">Crea la primera</a>.</p>
+<p class="text-muted">
+    {% if search_query %}
+    No hay recetas que coincidan con "{{ search_query }}". <a href="{{ url_for('recipes.list') }}">Ver todas</a>
+    {% else %}
+    No tienes recetas todavía. <a href="{{ url_for('recipes.add') }}">Crea la primera</a>.
+    {% endif %}
+</p>
 {% endif %}
 {% endblock %}

@@ -36,7 +36,7 @@
     <ul class="list-group mb-4">
         {% for ri in recipe.ingredients %}
         <li class="list-group-item">
-            {% if ri.quantity or ri.unit %}{{ ri.quantity }} {{ (ri.unit.symbol or ri.unit.name) if ri.unit else '' }} {% endif %}{{ ri.ingredient.name if ri.ingredient else '' }}
+            {% if ri.quantity or ri.unit %}{{ ri.quantity }} {{ (ri.unit.symbol or ri.unit.name) if ri.unit else '' }} {% endif %}{{ ri.ingredient.name if ri.ingredient else '' }}{% if ri.optional %} (opcional){% endif %}
         </li>
         {% endfor %}
     </ul>

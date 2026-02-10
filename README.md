@@ -62,4 +62,10 @@ If you have existing recipes from before the units/ingredients entity update, ru
 python scripts/migrate_to_entities.py
 ```
 
+For optional ingredients and tags support:
+
+```bash
+python scripts/migrate_optional_and_tags.py
+```
+
 Back up your database first (`cp instance/recetas.db instance/recetas.db.bak`).

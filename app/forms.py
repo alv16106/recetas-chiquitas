@@ -27,6 +27,7 @@ class RecipeForm(FlaskForm):
     title = StringField("Título", validators=[DataRequired(), Length(max=200)])
     description = TextAreaField("Descripción")
     instructions = TextAreaField("Instrucciones")
+    tags = StringField("Etiquetas", description="Separadas por comas (ej: postre, fácil, vegano)")
     submit = SubmitField("Guardar")
 
 

@@ -5,9 +5,11 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 
+from sqlalchemy import or_
+
 from app import db
 from app.forms import RecipeForm
-from app.models import Recipe, RecipeIngredient, RecipeImage, IngredientMaster, Unit
+from app.models import Recipe, RecipeIngredient, RecipeImage, IngredientMaster, Unit, Tag, recipe_tags
 
 bp = Blueprint("recipes", __name__)
 
@@ -38,6 +40,17 @@ def get_or_create_ingredient(name):
     return ing
 
 
+def get_or_create_tag(name):
+    if not name or not name.strip():
+        return None
+    tag = Tag.query.filter(Tag.name.ilike(name.strip())).first()
+    if not tag:
+        tag = Tag(name=name.strip())
+        db.session.add(tag)
+        db.session.flush()
+    return tag
+
+
 def get_or_create_unit(unit_id=None, unit_name=None):
     if unit_id:
         u = db.session.get(Unit, int(unit_id))
@@ -57,8 +70,29 @@ def get_or_create_unit(unit_id=None, unit_name=None):
 def list():
     if not current_user.is_authenticated:
         return redirect(url_for("auth.login"))
-    recipes = Recipe.query.filter_by(user_id=current_user.id).order_by(Recipe.updated_at.desc()).all()
-    return render_template("recipes/list.html", recipes=recipes)
+    q = request.args.get("q", "").strip()
+    base = Recipe.query.filter_by(user_id=current_user.id)
+    if q:
+        term = f"%{q}%"
+        recipes = (
+            base.outerjoin(RecipeIngredient)
+            .outerjoin(IngredientMaster)
+            .outerjoin(recipe_tags)
+            .outerjoin(Tag)
+            .filter(
+                or_(
+                    Recipe.title.ilike(term),
+                    IngredientMaster.name.ilike(term),
+                    Tag.name.ilike(term),
+                )
+            )
+            .distinct()
+            .order_by(Recipe.updated_at.desc())
+            .all()
+        )
+    else:
+        recipes = base.order_by(Recipe.updated_at.desc()).all()
+    return render_template("recipes/list.html", recipes=recipes, search_query=q)
 
 
 @bp.route("/<int:id>")
@@ -85,6 +119,7 @@ def add():
         unit_ids = request.form.getlist("ingredient_unit_id")
         unit_names = request.form.getlist("ingredient_unit")
         quantities = request.form.getlist("ingredient_quantity")
+        optional_indices = {int(x) for x in request.form.getlist("ingredient_optional") if x.isdigit()}
         for i, name in enumerate(request.form.getlist("ingredient_name")):
             if name.strip():
                 ing = get_or_create_ingredient(name)
@@ -92,13 +127,23 @@ def add():
                     unit_id = unit_ids[i] if i < len(unit_ids) else None
                     unit_name = unit_names[i] if i < len(unit_names) else None
                     u = get_or_create_unit(unit_id=unit_id, unit_name=unit_name)
+                    opt = i in optional_indices
                     ri = RecipeIngredient(
                         recipe_id=recipe.id,
                         ingredient_master_id=ing.id,
                         unit_id=u.id if u else None,
                         quantity=quantities[i] if i < len(quantities) else "",
+                        optional=opt,
                     )
                     db.session.add(ri)
+
+        # Tags
+        tags_str = (form.tags.data or "").strip()
+        recipe.tags = []
+        for tname in [t.strip() for t in tags_str.split(",") if t.strip()]:
+            tag = get_or_create_tag(tname)
+            if tag:
+                recipe.tags.append(tag)
 
         for file in request.files.getlist("images"):
             if file and file.filename and allowed_file(file.filename):
@@ -132,6 +177,7 @@ def edit(id):
         unit_ids = request.form.getlist("ingredient_unit_id")
         unit_names = request.form.getlist("ingredient_unit")
         quantities = request.form.getlist("ingredient_quantity")
+        optional_indices = {int(x) for x in request.form.getlist("ingredient_optional") if x.isdigit()}
         for i, name in enumerate(request.form.getlist("ingredient_name")):
             if name.strip():
                 ing = get_or_create_ingredient(name)
@@ -139,13 +185,23 @@ def edit(id):
                     unit_id = unit_ids[i] if i < len(unit_ids) else None
                     unit_name = unit_names[i] if i < len(unit_names) else None
                     u = get_or_create_unit(unit_id=unit_id, unit_name=unit_name)
+                    opt = i in optional_indices
                     ri = RecipeIngredient(
                         recipe_id=recipe.id,
                         ingredient_master_id=ing.id,
                         unit_id=u.id if u else None,
                         quantity=quantities[i] if i < len(quantities) else "",
+                        optional=opt,
                     )
                     db.session.add(ri)
+
+        # Tags
+        tags_str = (form.tags.data or "").strip()
+        recipe.tags = []
+        for tname in [t.strip() for t in tags_str.split(",") if t.strip()]:
+            tag = get_or_create_tag(tname)
+            if tag:
+                recipe.tags.append(tag)
 
         remove_ids = request.form.getlist("remove_image")
         for img_id in remove_ids:
@@ -182,6 +238,7 @@ def edit(id):
         form.title.data = recipe.title
         form.description.data = recipe.description
         form.instructions.data = recipe.instructions
+        form.tags.data = ", ".join(t.name for t in recipe.tags)
     units = Unit.query.order_by(Unit.name).all()
     return render_template("recipes/form.html", form=form, recipe=recipe, units=units)
 

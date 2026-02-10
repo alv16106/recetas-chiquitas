@@ -23,12 +23,16 @@
         {{ form.instructions.label(class="form-label") }}
         {{ form.instructions(class="form-control", rows=6) }}
     </div>
+    <div class="mb-3">
+        {{ form.tags.label(class="form-label") }}
+        {{ form.tags(class="form-control", placeholder="postre, fácil, vegano, ...") }}
+    </div>
 
     <h5>Ingredientes</h5>
     <div id="ingredients-container" class="mb-3" data-new-recipe="{{ 'true' if not recipe else 'false' }}">
         {% if recipe %}
         {% for ri in recipe.ingredients %}
-        <div class="ingredient-row row g-2 mb-2">
+        <div class="ingredient-row row g-2 mb-2 align-items-center">
             <div class="col-md-2">
                 <input type="text" name="ingredient_quantity" class="form-control" placeholder="Cantidad" value="{{ ri.quantity }}">
             </div>
@@ -41,9 +45,14 @@
                 </select>
                 <input type="hidden" name="ingredient_unit" value="">
             </div>
-            <div class="col-md-7 position-relative">
+            <div class="col-md-6 position-relative">
                 <input type="text" name="ingredient_name" class="form-control ingredient-autocomplete" placeholder="Buscar o añadir ingrediente" value="{{ ri.ingredient.name if ri.ingredient else '' }}" required autocomplete="off">
                 <div class="ingredient-suggestions list-group position-absolute w-100" style="z-index: 10; display: none;"></div>
+            </div>
+            <div class="col-md-1">
+                <label class="form-check-label small" title="Opcional">
+                    <input type="checkbox" name="ingredient_optional" value="{{ loop.index0 }}" class="ingredient-optional-cb" {% if ri.optional %}checked{% endif %}> Opc.
+                </label>
             </div>
             <div class="col-md-1">
                 <button type="button" class="btn btn-outline-danger btn-remove-ingredient">−</button>
@@ -77,7 +86,7 @@
 </form>
 
 <template id="ingredient-row-template">
-    <div class="ingredient-row row g-2 mb-2">
+    <div class="ingredient-row row g-2 mb-2 align-items-center">
         <div class="col-md-2">
             <input type="text" name="ingredient_quantity" class="form-control" placeholder="Cantidad">
         </div>
@@ -90,9 +99,14 @@
             </select>
             <input type="hidden" name="ingredient_unit" value="">
         </div>
-        <div class="col-md-7 position-relative">
+        <div class="col-md-6 position-relative">
             <input type="text" name="ingredient_name" class="form-control ingredient-autocomplete" placeholder="Buscar o añadir ingrediente" required autocomplete="off">
             <div class="ingredient-suggestions list-group position-absolute w-100" style="z-index: 10; display: none;"></div>
+        </div>
+        <div class="col-md-1 ingredient-optional-cell">
+            <label class="form-check-label small" title="Opcional">
+                <input type="checkbox" name="ingredient_optional" value="" class="ingredient-optional-cb"> Opc.
+            </label>
         </div>
         <div class="col-md-1">
             <button type="button" class="btn btn-outline-danger btn-remove-ingredient">−</button>
@@ -161,6 +175,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     container.querySelectorAll('.ingredient-autocomplete').forEach(attachAutocomplete);
+
+    document.querySelector('form').addEventListener('submit', function() {
+        container.querySelectorAll('.ingredient-row').forEach(function(row, idx) {
+            var cb = row.querySelector('.ingredient-optional-cb');
+            if (cb) cb.value = idx;
+        });
+    });
 
     var isNewRecipe = container.dataset.newRecipe === 'true';
     if (isNewRecipe && !document.querySelector('.ingredient-row')) addBtn.click();

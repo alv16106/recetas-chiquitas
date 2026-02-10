@@ -25,6 +25,13 @@
 </div>
 {% endif %}
 
+{% if recipe.tags %}
+<p class="mb-2">
+    {% for tag in recipe.tags %}
+    <span class="badge bg-secondary me-1">{{ tag.name }}</span>
+    {% endfor %}
+</p>
+{% endif %}
 {% if recipe.description %}
 <p class="lead">{{ recipe.description }}</p>
 {% endif %}
@@ -34,9 +41,9 @@
     {% for ri in recipe.ingredients %}
     <li class="list-group-item">
         {% if ri.quantity or ri.unit %}
-        <strong>{{ ri.quantity }} {{ (ri.unit.symbol or ri.unit.name) if ri.unit else '' }}</strong> {{ ri.ingredient.name if ri.ingredient else '' }}
+        <strong>{{ ri.quantity }} {{ (ri.unit.symbol or ri.unit.name) if ri.unit else '' }}</strong> {{ ri.ingredient.name if ri.ingredient else '' }}{% if ri.optional %} <span class="text-muted">(opcional)</span>{% endif %}
         {% else %}
-        {{ ri.ingredient.name if ri.ingredient else '' }}
+        {{ ri.ingredient.name if ri.ingredient else '' }}{% if ri.optional %} <span class="text-muted">(opcional)</span>{% endif %}
         {% endif %}
     </li>
     {% endfor %}

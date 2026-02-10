@@ -1,7 +1,10 @@
 import os
 import uuid
 
-from flask import Blueprint, render_template, redirect, url_for, flash, request, abort, current_app, send_from_directory
+import requests
+from recipe_scrapers import scrape_html
+
+from flask import Blueprint, render_template, redirect, url_for, flash, request, abort, current_app, send_from_directory, jsonify
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 
@@ -93,6 +96,81 @@ def list():
     else:
         recipes = base.order_by(Recipe.updated_at.desc()).all()
     return render_template("recipes/list.html", recipes=recipes, search_query=q)
+
+
+# Browser-like headers to reduce blocking (e.g. Bon Appétit, paywalled sites)
+_IMPORT_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    ),
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9,es;q=0.8",
+}
+
+
+@bp.route("/import-from-url", methods=["POST"])
+@login_required
+def import_from_url():
+    """Fetch a recipe from a URL and return title, instructions, ingredients (raw strings), image_url for form prefill."""
+    data = request.get_json() or {}
+    url = (data.get("url") or request.form.get("url") or "").strip()
+    if not url:
+        return jsonify({"error": "url required"}), 400
+    if not url.startswith(("http://", "https://")):
+        return jsonify({"error": "invalid url"}), 400
+    try:
+        resp = requests.get(
+            url,
+            timeout=15,
+            headers=_IMPORT_HEADERS,
+            allow_redirects=True,
+        )
+        resp.raise_for_status()
+    except requests.RequestException as e:
+        return jsonify({"error": "No se pudo cargar la página: " + str(e)}), 400
+
+    scraper = None
+    last_error = None
+    try:
+        scraper = scrape_html(resp.text, org_url=resp.url)
+    except Exception as e:
+        last_error = e
+        try:
+            scraper = scrape_html(resp.text, org_url=resp.url, wild_mode=True)
+        except TypeError:
+            pass  # library doesn't support wild_mode
+        except Exception as e2:
+            last_error = e2
+
+    if scraper is None:
+        err_msg = str(last_error) if last_error else "No se pudo extraer la receta."
+        return jsonify({
+            "error": "No se pudo extraer la receta de esta página. Prueba con otra URL o con un sitio de la lista soportada.",
+            "detail": err_msg[:200] if err_msg else None,
+        }), 400
+
+    def _safe(method, default=None):
+        try:
+            out = method()
+            return default if out is None else out
+        except Exception:
+            return default
+
+    title = _safe(scraper.title, "") or ""
+    instructions = _safe(scraper.instructions, "") or ""
+    ingredients = _safe(scraper.ingredients, [])
+    ingredients = [x for x in (ingredients or [])]
+    image_url = _safe(scraper.image, "") or ""
+
+    if not title and not ingredients and not instructions:
+        return jsonify({"error": "No se encontró ninguna receta en esta URL."}), 400
+    return jsonify({
+        "title": title,
+        "instructions": instructions,
+        "ingredients": ingredients,
+        "image_url": image_url,
+    })
 
 
 @bp.route("/<int:id>")

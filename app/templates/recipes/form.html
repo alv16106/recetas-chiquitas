@@ -5,6 +5,20 @@
 {% block content %}
 <h1>{{ 'Editar receta' if recipe else 'Nueva receta' }}</h1>
 
+{% if not recipe %}
+<div class="card mb-4">
+    <div class="card-body">
+        <h6 class="card-title">Importar desde URL</h6>
+        <p class="card-text small text-muted">Pega el enlace de una receta de una web de cocina para rellenar título, instrucciones e ingredientes (en texto). Luego puedes ajustar y normalizar los ingredientes.</p>
+        <div class="input-group">
+            <input type="url" id="import-recipe-url" class="form-control" placeholder="https://...">
+            <button type="button" id="import-recipe-btn" class="btn btn-outline-primary">Importar</button>
+        </div>
+        <div id="import-recipe-error" class="invalid-feedback d-none"></div>
+    </div>
+</div>
+{% endif %}
+
 <form method="post" enctype="multipart/form-data" novalidate>
     {{ form.hidden_tag() }}
 
@@ -185,6 +199,52 @@ document.addEventListener('DOMContentLoaded', function() {
 
     var isNewRecipe = container.dataset.newRecipe === 'true';
     if (isNewRecipe && !document.querySelector('.ingredient-row')) addBtn.click();
+
+    var importBtn = document.getElementById('import-recipe-btn');
+    var importUrl = document.getElementById('import-recipe-url');
+    var importError = document.getElementById('import-recipe-error');
+    if (importBtn && importUrl) {
+        importBtn.onclick = function() {
+            var url = importUrl.value.trim();
+            if (!url) return;
+            importError.classList.add('d-none');
+            importError.textContent = '';
+            importBtn.disabled = true;
+            var csrf = document.querySelector('input[name="csrf_token"]');
+            fetch('{{ url_for("recipes.import_from_url") }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'X-CSRFToken': csrf ? csrf.value : ''
+                },
+                body: JSON.stringify({ url: url })
+            }).then(function(r) {
+                return r.json().then(function(data) {
+                    if (!r.ok) throw new Error((data.error || 'Error al importar') + (data.detail ? ' — ' + data.detail : ''));
+                    return data;
+                });
+            }).then(function(data) {
+                if (data.title) document.querySelector('input[name="title"]').value = data.title;
+                if (data.instructions) document.querySelector('textarea[name="instructions"]').value = data.instructions;
+                container.querySelectorAll('.ingredient-row').forEach(function(row) { row.remove(); });
+                var list = data.ingredients && data.ingredients.length ? data.ingredients : [''];
+                list.forEach(function(text) {
+                    var row = template.content.cloneNode(true);
+                    container.appendChild(row);
+                    var nameInput = container.querySelector('.ingredient-row:last-child .ingredient-autocomplete');
+                    nameInput.value = typeof text === 'string' ? text : '';
+                    attachAutocomplete(nameInput);
+                });
+                importUrl.value = '';
+            }).catch(function(err) {
+                importError.textContent = err.message || 'Error al importar';
+                importError.classList.remove('d-none');
+            }).finally(function() {
+                importBtn.disabled = false;
+            });
+        };
+    }
 });
 </script>
 {% endblock %}

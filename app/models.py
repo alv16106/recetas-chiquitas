@@ -16,6 +16,9 @@ class User(UserMixin, db.Model):
     shopping_lists = db.relationship(
         "ShoppingList", backref="user", lazy="dynamic", cascade="all, delete-orphan"
     )
+    meal_plans = db.relationship(
+        "MealPlan", backref="user", lazy="dynamic", cascade="all, delete-orphan"
+    )
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -122,3 +125,25 @@ class ShoppingListItem(db.Model):
 
     ingredient = db.relationship("IngredientMaster", backref="shopping_items")
     unit_obj = db.relationship("Unit", backref="shopping_items")
+
+
+class MealPlan(db.Model):
+    __tablename__ = "meal_plans"
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    name = db.Column(db.String(200), nullable=False)
+    duration_days = db.Column(db.Integer, default=7, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    recipes = db.relationship(
+        "MealPlanRecipe", backref="meal_plan", lazy="dynamic", cascade="all, delete-orphan"
+    )
+
+
+class MealPlanRecipe(db.Model):
+    __tablename__ = "meal_plan_recipes"
+    id = db.Column(db.Integer, primary_key=True)
+    meal_plan_id = db.Column(db.Integer, db.ForeignKey("meal_plans.id"), nullable=False)
+    recipe_id = db.Column(db.Integer, db.ForeignKey("recipes.id"), nullable=False)
+
+    recipe = db.relationship("Recipe")

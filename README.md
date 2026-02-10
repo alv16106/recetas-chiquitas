@@ -44,6 +44,7 @@ Edit `app/static/css/custom.css` and change the CSS variables in the `:root` blo
 | `--theme-danger` | Delete buttons and errors |
 | `--theme-font-family` | Font family |
 | `--theme-logo-height` | Logo height in navbar (e.g. 32px, 40px) |
+| `--theme-tag-bg` | Background color of recipe tag badges |
 
 ### Custom logo
 

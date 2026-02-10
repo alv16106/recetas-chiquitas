@@ -5,10 +5,11 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-start mb-4">
     <h1>{{ recipe.title }}</h1>
-    <div>
+    <div class="d-flex flex-column flex-md-row gap-2">
         <a href="{{ url_for('recipes.edit', id=recipe.id) }}" class="btn btn-outline-primary">Editar</a>
         <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">Eliminar</button>
         <a href="{{ url_for('shopping.add_from_recipe', recipe_id=recipe.id) }}" class="btn btn-success">Añadir a lista de compras</a>
+        <a href="{{ url_for('mealplans.add_from_recipe', recipe_id=recipe.id) }}" class="btn btn-outline-success">Añadir al plan de comidas</a>
     </div>
 </div>
 
@@ -28,7 +29,7 @@
 {% if recipe.tags %}
 <p class="mb-2">
     {% for tag in recipe.tags %}
-    <span class="badge bg-secondary me-1">{{ tag.name }}</span>
+    <span class="badge recipe-tag me-1">{{ tag.name }}</span>
     {% endfor %}
 </p>
 {% endif %}

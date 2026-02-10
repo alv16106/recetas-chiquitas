@@ -1,9 +1,11 @@
-"""API endpoints for units and ingredients (autocomplete, search)."""
+"""API endpoints for units, ingredients, and recipe search."""
+from sqlalchemy import or_
+
 from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
 
 from app import db
-from app.models import Unit, IngredientMaster
+from app.models import Unit, IngredientMaster, Recipe, RecipeIngredient, Tag, recipe_tags
 
 bp = Blueprint("api", __name__, url_prefix="/api")
 
@@ -67,3 +69,34 @@ def create_ingredient():
     db.session.add(ing)
     db.session.commit()
     return jsonify({"id": ing.id, "name": ing.name}), 201
+
+
+@bp.route("/recipes")
+@login_required
+def search_recipes():
+    """Search current user's recipes by title, ingredients, or tags. For meal plan add."""
+    q = (request.args.get("q") or "").strip()
+    limit = min(int(request.args.get("limit", 15)), 30)
+    base = Recipe.query.filter_by(user_id=current_user.id)
+    if q:
+        term = f"%{q}%"
+        recipes = (
+            base.outerjoin(RecipeIngredient)
+            .outerjoin(IngredientMaster)
+            .outerjoin(recipe_tags)
+            .outerjoin(Tag)
+            .filter(
+                or_(
+                    Recipe.title.ilike(term),
+                    IngredientMaster.name.ilike(term),
+                    Tag.name.ilike(term),
+                )
+            )
+            .distinct()
+            .order_by(Recipe.updated_at.desc())
+            .limit(limit)
+            .all()
+        )
+    else:
+        recipes = base.order_by(Recipe.updated_at.desc()).limit(limit).all()
+    return jsonify([{"id": r.id, "title": r.title} for r in recipes])

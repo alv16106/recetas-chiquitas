@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}{{ meal_plan.name }} - Plan de comidas{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="mb-1">{{ meal_plan.name }}</h1>
+        <p class="text-muted mb-0">Duración: {{ meal_plan.duration_days }} días</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('mealplans.edit', id=meal_plan.id) }}" class="btn btn-outline-primary">Editar</a>
+        <form method="post" action="{{ url_for('mealplans.create_shopping_list', id=meal_plan.id) }}" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-success">Crear lista de compras</button>
+        </form>
+        <form method="post" action="{{ url_for('mealplans.delete', id=meal_plan.id) }}" class="d-inline"
+              onsubmit="return confirm('¿Seguro que quieres eliminar este plan?');">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <button type="submit" class="btn btn-outline-danger">Eliminar</button>
+        </form>
+    </div>
+</div>
+
+<div class="mb-4">
+    <label for="mealplan-recipe-search" class="form-label">Añadir receta al plan</label>
+    <div class="position-relative">
+        <input type="search" id="mealplan-recipe-search" class="form-control" placeholder="Buscar por nombre, ingrediente o etiqueta..." autocomplete="off">
+        <div id="mealplan-search-results" class="list-group position-absolute w-100 mt-1" style="z-index: 10; display: none; max-height: 280px; overflow-y: auto;"></div>
+    </div>
+</div>
+
+{% if meal_plan.recipes.count() %}
+<h4>Recetas en este plan</h4>
+<ul class="list-group mb-3">
+    {% for mpr in meal_plan.recipes %}
+    <li class="list-group-item d-flex justify-content-between align-items-center">
+        <a href="{{ url_for('recipes.detail', id=mpr.recipe.id) }}" class="text-decoration-none">
+            {{ mpr.recipe.title }}
+        </a>
+    </li>
+    {% endfor %}
+</ul>
+{% else %}
+<p class="text-muted">Aún no hay recetas en este plan. Usa la búsqueda de arriba para añadir.</p>
+{% endif %}
+
+<p class="text-muted small">También puedes añadir recetas desde el detalle de cada receta con "Añadir al plan de comidas".</p>
+
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+(function() {
+    var searchEl = document.getElementById('mealplan-recipe-search');
+    var resultsEl = document.getElementById('mealplan-search-results');
+    var planId = {{ meal_plan.id }};
+    var debounceTimer;
+    var addedIds = new Set([{% for mpr in meal_plan.recipes %}{{ mpr.recipe.id }}{% if not loop.last %}, {% endif %}{% endfor %}]);
+
+    searchEl.addEventListener('input', function() {
+        clearTimeout(debounceTimer);
+        var q = searchEl.value.trim();
+        resultsEl.style.display = 'none';
+        resultsEl.innerHTML = '';
+        if (q.length < 1) return;
+        debounceTimer = setTimeout(function() {
+            fetch('/api/recipes?q=' + encodeURIComponent(q) + '&limit=15')
+                .then(function(r) { return r.json(); })
+                .then(function(recipes) {
+                    resultsEl.innerHTML = '';
+                    recipes.forEach(function(r) {
+                        var li = document.createElement('div');
+                        li.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
+                        var a = document.createElement('a');
+                        a.href = '/recipes/' + r.id;
+                        a.className = 'text-decoration-none flex-grow-1';
+                        a.textContent = r.title;
+                        li.appendChild(a);
+                        if (addedIds.has(r.id)) {
+                            var span = document.createElement('span');
+                            span.className = 'badge bg-secondary';
+                            span.textContent = 'En el plan';
+                            li.appendChild(span);
+                        } else {
+                            var form = document.createElement('form');
+                            form.method = 'post';
+                            form.action = '/mealplans/' + planId + '/add-recipe';
+                            form.className = 'd-inline';
+                            form.innerHTML = '<input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="recipe_id" value="' + r.id + '"><button type="submit" class="btn btn-sm btn-success">Añadir</button>';
+                            li.appendChild(form);
+                        }
+                        resultsEl.appendChild(li);
+                    });
+                    if (recipes.length) resultsEl.style.display = 'block';
+                });
+        }, 200);
+    });
+    searchEl.addEventListener('blur', function() { setTimeout(function() { resultsEl.style.display = 'none'; }, 200); });
+})();
+</script>
+{% endblock %}

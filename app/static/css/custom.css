@@ -27,6 +27,9 @@
 
   /* Logo height in navbar (e.g. 32px, 40px) */
   --theme-logo-height: 40px;
+
+  /* Tag badge background (recipe tags) */
+  --theme-tag-bg: #aa82db;
 }
 
 /* Apply theme to body */
@@ -110,4 +113,9 @@ main.container {
 /* Preserve line breaks in recipe instructions */
 .recipe-instructions {
   white-space: pre-wrap;
+}
+
+/* Recipe tag badges */
+.badge.recipe-tag {
+  background-color: var(--theme-tag-bg);
 }

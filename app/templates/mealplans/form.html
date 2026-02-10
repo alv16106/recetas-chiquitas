@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Editar plan' if meal_plan else 'Nuevo plan de comidas' }} - Recetas Chiquitas{% endblock %}
+
+{% block content %}
+<h1>{{ 'Editar plan de comidas' if meal_plan else 'Nuevo plan de comidas' }}</h1>
+
+<form method="post">
+    <div class="mb-3">
+        <label for="name" class="form-label">Nombre</label>
+        <input type="text" id="name" name="name" class="form-control"
+               value="{{ meal_plan.name if meal_plan else '' }}" required>
+    </div>
+    <div class="mb-3">
+        <label for="duration_days" class="form-label">Duración (días)</label>
+        <input type="number" id="duration_days" name="duration_days" class="form-control"
+               value="{{ meal_plan.duration_days if meal_plan else 7 }}" min="1">
+        <div class="form-text">Por defecto es una semana (7 días). No se asocia a días específicos.</div>
+    </div>
+    <button type="submit" class="btn btn-primary">Guardar</button>
+    <a href="{{ url_for('mealplans.list') }}" class="btn btn-secondary">Cancelar</a>
+</form>
+{% endblock %}
+

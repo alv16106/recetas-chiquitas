@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block title %}Planes de comidas - Recetas Chiquitas{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Planes de comidas</h1>
+    <a href="{{ url_for('mealplans.add') }}" class="btn btn-primary">Nuevo plan</a>
+</div>
+
+{% if plans %}
+<ul class="list-group">
+    {% for mp in plans %}
+    <li class="list-group-item d-flex justify-content-between align-items-center">
+        <div>
+            <a href="{{ url_for('mealplans.detail', id=mp.id) }}" class="text-decoration-none">
+                <strong>{{ mp.name }}</strong>
+            </a>
+            <span class="text-muted small ms-2">{{ mp.duration_days }} días</span>
+        </div>
+        <span class="badge bg-secondary rounded-pill">{{ mp.recipes.count() }} recetas</span>
+    </li>
+    {% endfor %}
+</ul>
+{% else %}
+<p class="text-muted">No tienes planes de comidas. <a href="{{ url_for('mealplans.add') }}">Crea el primero</a>.</p>
+{% endif %}
+{% endblock %}
+

@@ -4,38 +4,58 @@
  */
 
 :root {
-  /* Primary brand color - used for navbar, primary buttons, links */
-  --theme-primary: #45bfe4;
+  /* Pastel aqua & lavender theme - soft, cozy feel */
 
-  /* Secondary color - used for secondary buttons and accents */
-  --theme-secondary: #81a6c6;
+  /* Primary - pastel aqua (softer than bright cyan) */
+  --theme-primary: #7ab8c4;
 
-  /* Navbar background (defaults to primary) */
-  --theme-navbar-bg: var(--theme-primary);
+  /* Secondary - muted blue-lavender */
+  --theme-secondary: #a8bdd4;
 
-  /* Body background */
-  --theme-body-bg: #faeffb;
+  /* Navbar - slightly deeper pastel aqua for contrast */
+  --theme-navbar-bg: #6baab6;
 
-  /* Success/accent color - used for success buttons and highlights */
-  --theme-success: #198754;
+  /* Body background - soft lavender */
+  --theme-body-bg: #f3edf8;
 
-  /* Danger color - used for delete buttons and errors */
-  --theme-danger: #dc3545;
+  /* Success - soft sage green (pastel) */
+  --theme-success: #6b9b7a;
 
-  /* Font family - system fonts or custom */
-  --theme-font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* Danger - muted coral (pastel) */
+  --theme-danger: #c97a7a;
+
+  /* Cozy rounded font - Nunito (loaded in base.html) */
+  --theme-font-family: "Nunito", system-ui, -apple-system, sans-serif;
 
   /* Logo height in navbar (e.g. 32px, 40px) */
   --theme-logo-height: 40px;
 
-  /* Tag badge background (recipe tags) */
-  --theme-tag-bg: #aa82db;
+  /* Tag badge - pastel lavender */
+  --theme-tag-bg: #b8a5d0;
+
+  /* Slightly deeper pastel aqua for primary button hover (stays soft, no blue) */
+  --theme-primary-hover: #65a3af;
+
+  /* Bootstrap 5.3 – primary and hover so buttons stay pastel aqua (no default blue) */
+  --bs-primary: var(--theme-primary);
+  --bs-primary-rgb: 122, 184, 196;
+  --bs-focus-ring-color: rgba(122, 184, 196, 0.25);
+  --bs-btn-hover-bg: var(--theme-primary-hover);
+  --bs-btn-hover-border-color: var(--theme-primary-hover);
+  --bs-btn-active-bg: var(--theme-primary-hover);
+  --bs-btn-active-border-color: var(--theme-primary-hover);
 }
 
 /* Apply theme to body */
 body {
   background-color: var(--theme-body-bg);
   font-family: var(--theme-font-family);
+  font-weight: 400;
+}
+
+/* Cozy heading weight - Nunito looks friendly when semibold */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 700;
 }
 
 /* Navbar theming */
@@ -60,8 +80,12 @@ body {
   border-color: var(--theme-primary);
 }
 
-.btn-primary:hover {
-  filter: brightness(1.1);
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary.active,
+.btn-primary:active {
+  background-color: var(--theme-primary-hover) !important;
+  border-color: var(--theme-primary-hover) !important;
 }
 
 .btn-success {
@@ -81,7 +105,18 @@ body {
 
 .btn-outline-primary:hover {
   background-color: var(--theme-primary);
+  border-color: var(--theme-primary);
   color: white;
+}
+
+.btn-outline-primary:focus,
+.btn-outline-primary.focus {
+  border-color: var(--theme-primary);
+  box-shadow: 0 0 0 0.25rem rgba(122, 184, 196, 0.5);
+}
+
+.btn-outline-primary:active {
+  border-color: var(--theme-primary);
 }
 
 /* Links */
@@ -89,9 +124,10 @@ a {
   color: var(--theme-primary);
 }
 
-/* Cards and list groups - optional subtle theming */
+/* Cards - soft border that fits pastel palette */
 .card {
-  border-color: rgba(0, 0, 0, 0.08);
+  border-color: rgba(184, 165, 208, 0.35);
+  border-radius: 0.75rem;
 }
 
 /* Page transition animation */

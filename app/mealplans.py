@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request, abort
+from flask import Blueprint, jsonify, render_template, redirect, url_for, flash, request, abort
 from flask_login import login_required, current_user
 
 from app import db
@@ -100,16 +100,50 @@ def add_from_recipe(recipe_id):
             flash("Selecciona un plan o crea uno nuevo.", "error")
             return render_template("mealplans/add_from_recipe.html", recipe=recipe, plans=plans)
 
-        # Avoid duplicates
-        existing_ids = {mpr.recipe_id for mpr in mp.recipes}
-        if recipe.id not in existing_ids:
+        existing = {mpr.recipe_id: mpr for mpr in mp.recipes}
+        if recipe.id not in existing:
             db.session.add(MealPlanRecipe(meal_plan_id=mp.id, recipe_id=recipe.id))
+        else:
+            existing[recipe.id].count += 1
 
         db.session.commit()
         flash("Receta añadida al plan.", "success")
         return redirect(url_for("mealplans.detail", id=mp.id))
 
     return render_template("mealplans/add_from_recipe.html", recipe=recipe, plans=plans)
+
+
+@bp.route("/<int:id>/set-recipe-count/<int:recipe_id>", methods=["POST"])
+@login_required
+def set_recipe_count(id, recipe_id):
+    mp = MealPlan.query.filter_by(id=id, user_id=current_user.id).first_or_404()
+    mpr = MealPlanRecipe.query.filter_by(
+        meal_plan_id=mp.id, recipe_id=recipe_id
+    ).first_or_404()
+    count = request.form.get("count") or (request.get_json() or {}).get("count")
+    try:
+        count = max(1, int(count))
+    except (ValueError, TypeError):
+        count = 1
+    mpr.count = count
+    db.session.commit()
+    if request.accept_mimetypes.best_match(["application/json", "text/html"]) == "application/json":
+        return jsonify({"ok": True, "count": mpr.count})
+    return redirect(url_for("mealplans.detail", id=id))
+
+
+@bp.route("/<int:id>/remove-recipe/<int:recipe_id>", methods=["POST"])
+@login_required
+def remove_recipe(id, recipe_id):
+    mp = MealPlan.query.filter_by(id=id, user_id=current_user.id).first_or_404()
+    mpr = MealPlanRecipe.query.filter_by(
+        meal_plan_id=mp.id, recipe_id=recipe_id
+    ).first_or_404()
+    db.session.delete(mpr)
+    db.session.commit()
+    if request.accept_mimetypes.best_match(["application/json", "text/html"]) == "application/json":
+        return jsonify({"ok": True})
+    return redirect(url_for("mealplans.detail", id=id))
 
 
 @bp.route("/<int:id>/add-recipe", methods=["POST"])
@@ -129,13 +163,15 @@ def add_recipe(id):
     if not recipe:
         flash("Receta no encontrada.", "error")
         return redirect(url_for("mealplans.detail", id=id))
-    existing_ids = {mpr.recipe_id for mpr in mp.recipes}
-    if recipe_id not in existing_ids:
+    existing = {mpr.recipe_id: mpr for mpr in mp.recipes}
+    if recipe_id not in existing:
         db.session.add(MealPlanRecipe(meal_plan_id=mp.id, recipe_id=recipe_id))
         db.session.commit()
         flash(f"«{recipe.title}» añadida al plan.", "success")
     else:
-        flash("Esa receta ya está en el plan.", "info")
+        existing[recipe_id].count += 1
+        db.session.commit()
+        flash(f"«{recipe.title}»: cantidad aumentada.", "success")
     return redirect(url_for("mealplans.detail", id=id))
 
 
@@ -147,26 +183,40 @@ def create_shopping_list(id):
     db.session.add(sl)
     db.session.flush()
 
+    def scale_quantity(qty, mult):
+        """Scale quantity by multiplier; return string."""
+        if mult <= 1:
+            return qty or ""
+        try:
+            f = float(qty or 0) * mult
+            from app.shopping import _format_quantity
+
+            return _format_quantity(f)
+        except (ValueError, TypeError):
+            return f"{qty} × {mult}" if qty else str(mult)
+
+    mult = 1
     existing = []
     for mpr in mp.recipes:
         recipe = mpr.recipe
         if not recipe:
             continue
+        mult = max(1, mpr.count or 1)
         for ri in recipe.ingredients:
+            qty = scale_quantity(ri.quantity, mult)
             if ri.ingredient_master_id and ri.ingredient:
                 new_item = merge_ingredient(
                     existing,
                     ri.ingredient_master_id,
                     ri.unit_id,
-                    ri.quantity,
+                    qty,
                 )
             else:
-                # Legacy fallback
                 name = ri.ingredient.name if ri.ingredient else ""
                 unit_str = (ri.unit.symbol or ri.unit.name) if ri.unit else ""
                 from app.shopping import merge_ingredient_legacy
 
-                new_item = merge_ingredient_legacy(existing, name, ri.quantity, unit_str)
+                new_item = merge_ingredient_legacy(existing, name, qty, unit_str)
             if new_item:
                 new_item.shopping_list_id = sl.id
                 db.session.add(new_item)

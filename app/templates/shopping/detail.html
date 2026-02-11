@@ -6,48 +6,219 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1>{{ shopping_list.name }}</h1>
     <div>
+        <button type="button" class="btn btn-outline-success" data-bs-toggle="modal" data-bs-target="#addFromRecipeModal">Añadir desde receta</button>
         <a href="{{ url_for('shopping.edit', id=shopping_list.id) }}" class="btn btn-outline-primary">Editar</a>
         <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal">Eliminar</button>
     </div>
 </div>
 
-<form method="post" action="{{ url_for('shopping.edit', id=shopping_list.id) }}">
+<input type="hidden" name="csrf_token" id="shopping-csrf" value="{{ csrf_token() }}">
+
+<form method="post" action="{{ url_for('shopping.add_item', id=shopping_list.id) }}" class="row g-2 mb-3">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <ul class="list-group">
-        {% for item in shopping_list.items %}
-        <li class="list-group-item d-flex align-items-center">
-            <div class="form-check me-3">
-                <input class="form-check-input" type="checkbox" name="checked_{{ item.id }}" id="check_{{ item.id }}"
-                       {% if item.checked %}checked{% endif %}
-                       onchange="this.form.submit()">
-                <label class="form-check-label" for="check_{{ item.id }}">
-                    {% set iname = item.ingredient.name if item.ingredient else item.ingredient_name %}
-                    {% set ustr = (item.unit_obj.symbol or item.unit_obj.name) if item.unit_obj else item.unit %}
-                    {% if item.quantity or ustr %}
-                    <strong>{{ item.quantity }} {{ ustr }}</strong> {{ iname }}
-                    {% else %}
-                    {{ iname }}
-                    {% endif %}
-                </label>
-            </div>
-        </li>
-        {% endfor %}
-    </ul>
-    {% if shopping_list.items.count() > 0 %}
-    <button type="submit" class="btn btn-primary mt-2">Guardar cambios</button>
-    {% endif %}
+    <div class="col-auto">
+        <input type="text" name="quantity" class="form-control" placeholder="Cantidad" style="width: 6rem;">
+    </div>
+    <div class="col-auto">
+        <select name="unit_id" class="form-select" style="width: auto;">
+            <option value="">—</option>
+            {% for u in units %}
+            <option value="{{ u.id }}">{{ u.symbol or u.name }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="col position-relative">
+        <input type="text" name="name" class="form-control ingredient-autocomplete" placeholder="Añadir ingrediente..." required autocomplete="off">
+        <div class="ingredient-suggestions list-group position-absolute w-100" style="z-index: 10; display: none;"></div>
+    </div>
+    <div class="col-auto">
+        <button type="submit" class="btn btn-primary">Añadir</button>
+    </div>
 </form>
+
+<ul class="list-group">
+    {% for item in shopping_list.items %}
+    <li class="list-group-item d-flex align-items-center shopping-item" data-item-id="{{ item.id }}">
+        <div class="form-check me-3 flex-grow-1">
+            <input class="form-check-input shopping-checkbox" type="checkbox" id="check_{{ item.id }}"
+                   data-list-id="{{ shopping_list.id }}" data-item-id="{{ item.id }}"
+                   {% if item.checked %}checked{% endif %}>
+            <label class="form-check-label" for="check_{{ item.id }}">
+                {% set iname = item.ingredient.name if item.ingredient else item.ingredient_name %}
+                {% set ustr = (item.unit_obj.symbol or item.unit_obj.name) if item.unit_obj else item.unit %}
+                {% if item.quantity or ustr %}
+                <strong>{{ item.quantity }} {{ ustr }}</strong> {{ iname }}
+                {% else %}
+                {{ iname }}
+                {% endif %}
+            </label>
+        </div>
+        <button type="button" class="btn btn-outline-danger btn-sm shopping-remove-item" data-list-id="{{ shopping_list.id }}" data-item-id="{{ item.id }}" title="Quitar">−</button>
+    </li>
+    {% endfor %}
+</ul>
 
 {% if shopping_list.items.count() == 0 %}
 <p class="text-muted">La lista está vacía. Añade ingredientes desde una receta.</p>
 {% endif %}
+{% endblock %}
 
-<div class="modal fade" id="deleteModal" tabindex="-1">
-    <div class="modal-dialog">
+{% block scripts %}
+{{ super() }}
+<script>
+(function() {
+    var csrf = document.getElementById('shopping-csrf') || document.querySelector('input[name="csrf_token"]');
+    var debounceTimer;
+    function attachAutocomplete(input) {
+        if (!input || input.dataset.autocompleteAttached) return;
+        input.dataset.autocompleteAttached = '1';
+        var suggestionsEl = input.closest('.position-relative').querySelector('.ingredient-suggestions');
+        if (!suggestionsEl) return;
+        input.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            var q = input.value.trim();
+            suggestionsEl.style.display = 'none';
+            suggestionsEl.innerHTML = '';
+            if (q.length < 2) return;
+            debounceTimer = setTimeout(function() {
+                fetch('/api/ingredients?q=' + encodeURIComponent(q) + '&limit=10')
+                    .then(function(r) { return r.json(); })
+                    .then(function(items) {
+                        suggestionsEl.innerHTML = '';
+                        items.forEach(function(item) {
+                            var a = document.createElement('a');
+                            a.href = '#';
+                            a.className = 'list-group-item list-group-item-action';
+                            a.textContent = item.name;
+                            a.addEventListener('click', function(e) {
+                                e.preventDefault();
+                                input.value = item.name;
+                                suggestionsEl.style.display = 'none';
+                            });
+                            suggestionsEl.appendChild(a);
+                        });
+                        if (items.length) suggestionsEl.style.display = 'block';
+                    });
+            }, 200);
+        });
+        input.addEventListener('blur', function() {
+            setTimeout(function() { suggestionsEl.style.display = 'none'; }, 150);
+        });
+    }
+    document.querySelectorAll('.ingredient-autocomplete').forEach(attachAutocomplete);
+
+    (function() {
+        var searchEl = document.getElementById('shopping-recipe-search');
+        var resultsEl = document.getElementById('shopping-recipe-results');
+        if (!searchEl || !resultsEl) return;
+        var listId = {{ shopping_list.id }};
+        var debounceTimer;
+        searchEl.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            var q = searchEl.value.trim();
+            resultsEl.style.display = 'none';
+            resultsEl.innerHTML = '';
+            if (q.length < 1) return;
+            debounceTimer = setTimeout(function() {
+                fetch('/api/recipes?q=' + encodeURIComponent(q) + '&limit=15')
+                    .then(function(r) { return r.json(); })
+                    .then(function(recipes) {
+                        resultsEl.innerHTML = '';
+                        recipes.forEach(function(r) {
+                            var li = document.createElement('div');
+                            li.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-center';
+                            var a = document.createElement('a');
+                            a.href = '/recipes/' + r.id;
+                            a.className = 'text-decoration-none flex-grow-1';
+                            a.textContent = r.title;
+                            a.target = '_blank';
+                            li.appendChild(a);
+                            var form = document.createElement('form');
+                            form.method = 'post';
+                            form.action = '/shopping/' + listId + '/add-recipe/' + r.id;
+                            form.className = 'd-inline';
+                            form.innerHTML = '<input type="hidden" name="csrf_token" value="' + (csrf ? csrf.value : '') + '"><button type="submit" class="btn btn-sm btn-success">Añadir</button>';
+                            li.appendChild(form);
+                            resultsEl.appendChild(li);
+                        });
+                        if (recipes.length) resultsEl.style.display = 'block';
+                    });
+            }, 200);
+        });
+        searchEl.addEventListener('blur', function() {
+            setTimeout(function() { resultsEl.style.display = 'none'; }, 200);
+        });
+    })();
+
+    document.querySelectorAll('.shopping-remove-item').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var listId = btn.dataset.listId;
+            var itemId = btn.dataset.itemId;
+            var row = btn.closest('.shopping-item');
+            fetch('/shopping/' + listId + '/remove-item/' + itemId, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Accept': 'application/json',
+                    'X-CSRFToken': csrf ? csrf.value : ''
+                },
+                body: 'csrf_token=' + encodeURIComponent(csrf ? csrf.value : '')
+            }).then(function(r) {
+                if (r.ok) row.remove();
+            });
+        });
+    });
+
+    document.querySelectorAll('.shopping-checkbox').forEach(function(cb) {
+        cb.addEventListener('change', function() {
+            var listId = cb.dataset.listId;
+            var itemId = cb.dataset.itemId;
+            var checked = cb.checked;
+            fetch('/shopping/' + listId + '/toggle/' + itemId, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Accept': 'application/json',
+                    'X-CSRFToken': csrf ? csrf.value : ''
+                },
+                body: 'csrf_token=' + encodeURIComponent(csrf ? csrf.value : '')
+            }).then(function(r) {
+                if (!r.ok) throw new Error('Error');
+                return r.json();
+            }).catch(function() {
+                cb.checked = !checked;
+            });
+        });
+    });
+})();
+</script>
+{% endblock %}
+
+{% block modals %}
+<div class="modal fade" id="addFromRecipeModal" tabindex="-1" aria-labelledby="addFromRecipeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Eliminar lista</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                <h5 class="modal-title" id="addFromRecipeModalLabel">Añadir ingredientes desde receta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <label for="shopping-recipe-search" class="form-label">Buscar receta</label>
+                <div class="position-relative">
+                    <input type="search" id="shopping-recipe-search" class="form-control" placeholder="Buscar por nombre, ingrediente o etiqueta..." autocomplete="off">
+                    <div id="shopping-recipe-results" class="list-group position-absolute w-100 mt-1" style="z-index: 11; display: none; max-height: 280px; overflow-y: auto;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Eliminar lista</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
             </div>
             <div class="modal-body">
                 ¿Seguro que quieres eliminar "{{ shopping_list.name }}"?

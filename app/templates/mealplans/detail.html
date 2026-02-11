@@ -34,10 +34,27 @@
 <h4>Recetas en este plan</h4>
 <ul class="list-group mb-3">
     {% for mpr in meal_plan.recipes %}
-    <li class="list-group-item d-flex justify-content-between align-items-center">
-        <a href="{{ url_for('recipes.detail', id=mpr.recipe.id) }}" class="text-decoration-none">
-            {{ mpr.recipe.title }}
-        </a>
+    <li class="list-group-item d-flex justify-content-between align-items-center mealplan-recipe-item" data-recipe-id="{{ mpr.recipe.id }}">
+        <div class="flex-grow-1">
+            <a href="{{ url_for('recipes.detail', id=mpr.recipe.id) }}" class="text-decoration-none">
+                {{ mpr.recipe.title }}
+            </a>
+            {% if mpr.recipe.tags %}
+            <div class="mt-1">
+                {% for tag in mpr.recipe.tags %}
+                <span class="badge recipe-tag me-1">{{ tag.name }}</span>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        <div class="d-flex align-items-center gap-1">
+            <div class="btn-group btn-group-sm" role="group">
+                <button type="button" class="btn btn-outline-secondary mealplan-count-dec" data-plan-id="{{ meal_plan.id }}" data-recipe-id="{{ mpr.recipe.id }}" title="Menos">−</button>
+                <span class="btn btn-outline-secondary px-2 mealplan-count-display" style="min-width: 2rem;">{{ mpr.count }}</span>
+                <button type="button" class="btn btn-outline-secondary mealplan-count-inc" data-plan-id="{{ meal_plan.id }}" data-recipe-id="{{ mpr.recipe.id }}" title="Más">+</button>
+            </div>
+            <button type="button" class="btn btn-outline-danger btn-sm mealplan-remove-recipe" data-plan-id="{{ meal_plan.id }}" data-recipe-id="{{ mpr.recipe.id }}" title="Quitar">×</button>
+        </div>
     </li>
     {% endfor %}
 </ul>
@@ -98,6 +115,56 @@
         }, 200);
     });
     searchEl.addEventListener('blur', function() { setTimeout(function() { resultsEl.style.display = 'none'; }, 200); });
+
+    var csrf = document.querySelector('input[name="csrf_token"]');
+    function setCount(planId, recipeId, delta) {
+        var row = document.querySelector('.mealplan-recipe-item[data-recipe-id="' + recipeId + '"]');
+        var display = row ? row.querySelector('.mealplan-count-display') : null;
+        var current = display ? parseInt(display.textContent, 10) || 1 : 1;
+        var next = Math.max(1, current + delta);
+        fetch('/mealplans/' + planId + '/set-recipe-count/' + recipeId, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'Accept': 'application/json',
+                'X-CSRFToken': csrf ? csrf.value : ''
+            },
+            body: 'csrf_token=' + encodeURIComponent(csrf ? csrf.value : '') + '&count=' + next
+        }).then(function(r) {
+            if (r.ok && display) display.textContent = next;
+        });
+    }
+    document.querySelectorAll('.mealplan-count-inc').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            setCount(btn.dataset.planId, parseInt(btn.dataset.recipeId, 10), 1);
+        });
+    });
+    document.querySelectorAll('.mealplan-count-dec').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            setCount(btn.dataset.planId, parseInt(btn.dataset.recipeId, 10), -1);
+        });
+    });
+    document.querySelectorAll('.mealplan-remove-recipe').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var planId = btn.dataset.planId;
+            var recipeId = parseInt(btn.dataset.recipeId, 10);
+            var row = btn.closest('.mealplan-recipe-item');
+            fetch('/mealplans/' + planId + '/remove-recipe/' + recipeId, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'Accept': 'application/json',
+                    'X-CSRFToken': csrf ? csrf.value : ''
+                },
+                body: 'csrf_token=' + encodeURIComponent(csrf ? csrf.value : '')
+            }).then(function(r) {
+                if (r.ok) {
+                    addedIds.delete(recipeId);
+                    row.remove();
+                }
+            });
+        });
+    });
 })();
 </script>
 {% endblock %}

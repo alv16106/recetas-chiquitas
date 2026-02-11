@@ -145,5 +145,6 @@ class MealPlanRecipe(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     meal_plan_id = db.Column(db.Integer, db.ForeignKey("meal_plans.id"), nullable=False)
     recipe_id = db.Column(db.Integer, db.ForeignKey("recipes.id"), nullable=False)
+    count = db.Column(db.Integer, default=1, nullable=False)
 
     recipe = db.relationship("Recipe")

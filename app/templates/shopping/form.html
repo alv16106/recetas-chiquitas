@@ -12,12 +12,143 @@
         <input type="text" class="form-control" id="name" name="name"
                value="{{ shopping_list.name if shopping_list else 'Lista de compras' }}" required>
     </div>
+
     {% if shopping_list %}
-    <button type="submit" class="btn btn-primary">Guardar</button>
+    <h5 class="mt-4">Items</h5>
+    <ul class="list-group mb-3">
+        {% for item in shopping_list.items %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            <span>
+                {% set iname = item.ingredient.name if item.ingredient else item.ingredient_name %}
+                {% set ustr = (item.unit_obj.symbol or item.unit_obj.name) if item.unit_obj else item.unit %}
+                {% if item.quantity or ustr %}
+                <strong>{{ item.quantity }} {{ ustr }}</strong> {{ iname }}
+                {% else %}
+                {{ iname }}
+                {% endif %}
+            </span>
+            <label class="form-check-label mb-0">
+                <input type="checkbox" name="remove_item_{{ item.id }}" class="form-check-input" value="1"> Quitar
+            </label>
+        </li>
+        {% endfor %}
+    </ul>
+
+    <h6>Añadir item</h6>
+    <div id="add-items-container" class="mb-3">
+        <div class="add-item-row row g-2 mb-2 align-items-center">
+            <div class="col-md-2">
+                <input type="text" name="new_item_quantity" class="form-control" placeholder="Cantidad">
+            </div>
+            <div class="col-md-2">
+                <select name="new_item_unit_id" class="form-control form-select">
+                    <option value="">—</option>
+                    {% for u in units %}
+                    <option value="{{ u.id }}">{{ u.symbol or u.name }}</option>
+                    {% endfor %}
+                </select>
+                <input type="hidden" name="new_item_unit" value="">
+            </div>
+            <div class="col-md-6 position-relative">
+                <input type="text" name="new_item_name" class="form-control ingredient-autocomplete" placeholder="Ingrediente" autocomplete="off">
+                <div class="ingredient-suggestions list-group position-absolute w-100" style="z-index: 10; display: none;"></div>
+            </div>
+            <div class="col-md-2">
+                <button type="button" class="btn btn-outline-secondary btn-sm btn-add-item">+ Añadir otra</button>
+            </div>
+        </div>
+    </div>
+    <template id="add-item-row-template">
+        <div class="add-item-row row g-2 mb-2 align-items-center">
+            <div class="col-md-2">
+                <input type="text" name="new_item_quantity" class="form-control" placeholder="Cantidad">
+            </div>
+            <div class="col-md-2">
+                <select name="new_item_unit_id" class="form-control form-select">
+                    <option value="">—</option>
+                    {% for u in units %}
+                    <option value="{{ u.id }}">{{ u.symbol or u.name }}</option>
+                    {% endfor %}
+                </select>
+                <input type="hidden" name="new_item_unit" value="">
+            </div>
+            <div class="col-md-6 position-relative">
+                <input type="text" name="new_item_name" class="form-control ingredient-autocomplete" placeholder="Ingrediente" autocomplete="off">
+                <div class="ingredient-suggestions list-group position-absolute w-100" style="z-index: 10; display: none;"></div>
+            </div>
+            <div class="col-md-2">
+                <button type="button" class="btn btn-outline-danger btn-sm btn-remove-add-row">−</button>
+            </div>
+        </div>
+    </template>
+    {% endif %}
+
+    <button type="submit" class="btn btn-primary">{{ 'Guardar' if shopping_list else 'Crear lista' }}</button>
+    {% if shopping_list %}
     <a href="{{ url_for('shopping.detail', id=shopping_list.id) }}" class="btn btn-secondary">Cancelar</a>
     {% else %}
-    <button type="submit" class="btn btn-primary">Crear lista</button>
     <a href="{{ url_for('shopping.list') }}" class="btn btn-secondary">Cancelar</a>
     {% endif %}
 </form>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+{% if shopping_list and units %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var container = document.getElementById('add-items-container');
+    var template = document.getElementById('add-item-row-template');
+    var debounceTimer;
+
+    function attachAutocomplete(input) {
+        if (!input || input.dataset.autocompleteAttached) return;
+        input.dataset.autocompleteAttached = '1';
+        var suggestionsEl = input.closest('.position-relative').querySelector('.ingredient-suggestions');
+        input.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            var q = input.value.trim();
+            suggestionsEl.style.display = 'none';
+            suggestionsEl.innerHTML = '';
+            if (q.length < 2) return;
+            debounceTimer = setTimeout(function() {
+                fetch('/api/ingredients?q=' + encodeURIComponent(q) + '&limit=10')
+                    .then(function(r) { return r.json(); })
+                    .then(function(items) {
+                        suggestionsEl.innerHTML = '';
+                        items.forEach(function(item) {
+                            var a = document.createElement('a');
+                            a.href = '#';
+                            a.className = 'list-group-item list-group-item-action';
+                            a.textContent = item.name;
+                            a.addEventListener('click', function(e) {
+                                e.preventDefault();
+                                input.value = item.name;
+                                suggestionsEl.style.display = 'none';
+                            });
+                            suggestionsEl.appendChild(a);
+                        });
+                        if (items.length) suggestionsEl.style.display = 'block';
+                    });
+            }, 200);
+        });
+        input.addEventListener('blur', function() {
+            setTimeout(function() { suggestionsEl.style.display = 'none'; }, 150);
+        });
+    }
+
+    container.querySelectorAll('.ingredient-autocomplete').forEach(attachAutocomplete);
+
+    container.addEventListener('click', function(e) {
+        if (e.target.classList.contains('btn-add-item')) {
+            var row = template.content.cloneNode(true);
+            container.appendChild(row);
+            attachAutocomplete(container.querySelector('.add-item-row:last-child .ingredient-autocomplete'));
+        } else if (e.target.classList.contains('btn-remove-add-row')) {
+            e.target.closest('.add-item-row').remove();
+        }
+    });
+});
+</script>
+{% endif %}
 {% endblock %}

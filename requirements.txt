@@ -6,3 +6,5 @@ werkzeug
 pillow
 requests
 recipe-scrapers
+psycopg2-binary
+boto3

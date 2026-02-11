@@ -14,8 +14,10 @@ def make_shell_context():
 if __name__ == "__main__":
     with app.app_context():
         os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
-        db_path = app.config["SQLALCHEMY_DATABASE_URI"].replace("sqlite:///", "")
-        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        uri = app.config["SQLALCHEMY_DATABASE_URI"]
+        if uri.startswith("sqlite:///"):
+            db_path = uri.replace("sqlite:///", "")
+            os.makedirs(os.path.dirname(db_path), exist_ok=True)
         db.create_all()
         try:
             from scripts.seed_units import seed_units

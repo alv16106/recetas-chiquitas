@@ -43,6 +43,10 @@ def create_app(config_class=Config):
     app.register_blueprint(api_bp)
     csrf.exempt(api_bp)
 
+    @app.route("/health")
+    def health():
+        return "", 200
+
     @app.route("/")
     def index():
         return redirect(url_for("recipes.list"))

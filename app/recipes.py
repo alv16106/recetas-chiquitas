@@ -13,6 +13,7 @@ from sqlalchemy import or_
 from app import db
 from app.forms import RecipeForm
 from app.models import Recipe, RecipeIngredient, RecipeImage, IngredientMaster, Unit, Tag, recipe_tags
+from app.uploads import use_s3, upload_image, get_image_url, delete_image, delete_recipe_images
 
 bp = Blueprint("recipes", __name__)
 
@@ -226,13 +227,20 @@ def add():
         for file in request.files.getlist("images"):
             if file and file.filename and allowed_file(file.filename):
                 ext = file.filename.rsplit(".", 1)[1].lower()
-                filename = f"{uuid.uuid4().hex}.{ext}"
-                recipe_dir = os.path.join(current_app.config["UPLOAD_FOLDER"], str(recipe.id))
-                os.makedirs(recipe_dir, exist_ok=True)
-                filepath = os.path.join(recipe_dir, filename)
-                file.save(filepath)
-                img = RecipeImage(recipe_id=recipe.id, filename=filename)
-                db.session.add(img)
+                unique_name = f"{uuid.uuid4().hex}.{ext}"
+                if use_s3():
+                    data = file.read()
+                    stored = upload_image(recipe.id, data, unique_name)
+                    if stored:
+                        img = RecipeImage(recipe_id=recipe.id, filename=stored)
+                        db.session.add(img)
+                else:
+                    recipe_dir = os.path.join(current_app.config["UPLOAD_FOLDER"], str(recipe.id))
+                    os.makedirs(recipe_dir, exist_ok=True)
+                    filepath = os.path.join(recipe_dir, unique_name)
+                    file.save(filepath)
+                    img = RecipeImage(recipe_id=recipe.id, filename=unique_name)
+                    db.session.add(img)
 
         db.session.commit()
         flash("Receta creada correctamente.", "success")
@@ -286,27 +294,37 @@ def edit(id):
             try:
                 img = db.session.get(RecipeImage, int(img_id))
                 if img and img.recipe_id == recipe.id:
-                    filepath = os.path.join(
-                        current_app.config["UPLOAD_FOLDER"],
-                        str(recipe.id),
-                        img.filename,
-                    )
-                    if os.path.exists(filepath):
-                        os.remove(filepath)
+                    if img.filename.startswith("s3/"):
+                        delete_image(img.filename)
+                    else:
+                        filepath = os.path.join(
+                            current_app.config["UPLOAD_FOLDER"],
+                            str(recipe.id),
+                            img.filename,
+                        )
+                        if os.path.exists(filepath):
+                            os.remove(filepath)
                     db.session.delete(img)
-            except (ValueError, TypeError):
+            except (ValueError, TypeError, AttributeError):
                 pass
 
         for file in request.files.getlist("images"):
             if file and file.filename and allowed_file(file.filename):
                 ext = file.filename.rsplit(".", 1)[1].lower()
-                filename = f"{uuid.uuid4().hex}.{ext}"
-                recipe_dir = os.path.join(current_app.config["UPLOAD_FOLDER"], str(recipe.id))
-                os.makedirs(recipe_dir, exist_ok=True)
-                filepath = os.path.join(recipe_dir, filename)
-                file.save(filepath)
-                img = RecipeImage(recipe_id=recipe.id, filename=filename)
-                db.session.add(img)
+                unique_name = f"{uuid.uuid4().hex}.{ext}"
+                if use_s3():
+                    data = file.read()
+                    stored = upload_image(recipe.id, data, unique_name)
+                    if stored:
+                        img = RecipeImage(recipe_id=recipe.id, filename=stored)
+                        db.session.add(img)
+                else:
+                    recipe_dir = os.path.join(current_app.config["UPLOAD_FOLDER"], str(recipe.id))
+                    os.makedirs(recipe_dir, exist_ok=True)
+                    filepath = os.path.join(recipe_dir, unique_name)
+                    file.save(filepath)
+                    img = RecipeImage(recipe_id=recipe.id, filename=unique_name)
+                    db.session.add(img)
 
         db.session.commit()
         flash("Receta actualizada correctamente.", "success")
@@ -325,6 +343,7 @@ def edit(id):
 @login_required
 def delete(id):
     recipe = get_recipe_or_404(id)
+    delete_recipe_images(recipe.id, recipe.images)
     recipe_dir = os.path.join(current_app.config["UPLOAD_FOLDER"], str(recipe.id))
     if os.path.isdir(recipe_dir):
         for f in os.listdir(recipe_dir):
@@ -336,12 +355,17 @@ def delete(id):
     return redirect(url_for("recipes.list"))
 
 
-@bp.route("/<int:recipe_id>/images/<filename>")
+@bp.route("/<int:recipe_id>/images/<path:filename>")
 def serve_image(recipe_id, filename):
     if not current_user.is_authenticated:
         abort(404)
     recipe = db.session.get(Recipe, recipe_id)
     if recipe is None or recipe.user_id != current_user.id:
+        abort(404)
+    if filename.startswith("s3/"):
+        url = get_image_url(recipe_id, filename)
+        if url:
+            return redirect(url)
         abort(404)
     upload_folder = current_app.config["UPLOAD_FOLDER"]
     return send_from_directory(os.path.join(upload_folder, str(recipe_id)), filename)

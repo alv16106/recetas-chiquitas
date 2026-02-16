@@ -13,7 +13,7 @@ def _rds_iam_creator():
     database = os.environ.get("RDS_DATABASE", "postgres")
     user = os.environ["RDS_USER"]
     region = os.environ.get("RDS_REGION", "eu-west-2")
-    sslrootcert = os.environ.get("RDS_SSLROOTCERT", "/certs/global-bundle.pem")
+    sslrootcert = os.environ.get("RDS_SSLROOTCERT", "/app/certs/eu-west-2-bundle.pem")
 
     token = boto3.client("rds", region_name=region).generate_db_auth_token(
         DBHostname=host,
@@ -64,3 +64,8 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     UPLOAD_FOLDER = os.path.join(basedir, "uploads")
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB max upload
+
+    # S3 image storage (optional; when set, recipe images go to S3)
+    S3_BUCKET = os.environ.get("S3_BUCKET")
+    S3_REGION = os.environ.get("S3_REGION", "eu-west-2")
+    S3_PREFIX = (os.environ.get("S3_PREFIX") or "recipes").strip().rstrip("/")

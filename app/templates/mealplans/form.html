@@ -6,6 +6,7 @@
 <h1>{{ 'Editar plan de comidas' if meal_plan else 'Nuevo plan de comidas' }}</h1>
 
 <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
     <div class="mb-3">
         <label for="name" class="form-label">Nombre</label>
         <input type="text" id="name" name="name" class="form-control"

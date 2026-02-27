@@ -3,55 +3,25 @@ import os
 basedir = os.path.abspath(os.path.dirname(__file__))
 
 
-def _rds_password_creator():
-    """Create a psycopg2 connection using password auth (for Neon/fly.io)."""
-    import psycopg2
-
-    host = os.environ["RDS_HOST"]
-    port = int(os.environ.get("RDS_PORT", 5432))
-    database = os.environ.get("RDS_DATABASE", "postgres")
-    user = os.environ["RDS_USER"]
-    password = os.environ["RDS_PASSWORD"]
-
-    return psycopg2.connect(
-        host=host,
-        port=port,
-        database=database,
-        user=user,
-        password=password,
-        sslmode="require",
-    )
-
-
-def _database_config():
+def _database_uri():
     """
-    Returns (uri, engine_options).
+    Returns database URI.
     - ENVIRONMENT=develop → SQLite
-    - RDS_HOST + RDS_PASSWORD set → PostgreSQL with password auth (Neon)
-    - Else DATABASE_URL or SQLite fallback
+    - DATABASE_URL set → Use it directly (Neon, etc.)
+    - Else SQLite fallback
     """
     env = (os.environ.get("ENVIRONMENT") or "").lower()
     if env in ("develop", "development"):
-        uri = "sqlite:///" + os.path.join(basedir, "instance", "recetas.db")
-        return uri, {}
+        return "sqlite:///" + os.path.join(basedir, "instance", "recetas.db")
 
-    if os.environ.get("RDS_HOST") and os.environ.get("RDS_PASSWORD"):
-        uri = "postgresql+psycopg2://"
-        return uri, {"creator": _rds_password_creator}
-
-    uri = os.environ.get("DATABASE_URL") or "sqlite:///" + os.path.join(
+    return os.environ.get("DATABASE_URL") or "sqlite:///" + os.path.join(
         basedir, "instance", "recetas.db"
     )
-    return uri, {}
-
-
-_db_uri, _db_engine_options = _database_config()
 
 
 class Config:
     SECRET_KEY = os.environ.get("SECRET_KEY") or "dev-secret-key-change-in-production"
-    SQLALCHEMY_DATABASE_URI = _db_uri
-    SQLALCHEMY_ENGINE_OPTIONS = _db_engine_options
+    SQLALCHEMY_DATABASE_URI = _database_uri()
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     UPLOAD_FOLDER = os.path.join(basedir, "uploads")
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB max upload

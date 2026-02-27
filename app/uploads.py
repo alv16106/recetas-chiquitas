@@ -11,11 +11,16 @@ def use_s3():
 
 
 def _s3_client():
+    import os
+
     import boto3
 
     return boto3.client(
         "s3",
-        region_name=current_app.config.get("S3_REGION", "eu-west-2"),
+        endpoint_url=os.environ.get("S3_ENDPOINT"),
+        region_name=current_app.config.get("S3_REGION", "auto"),
+        aws_access_key_id=os.environ.get("ACCESS_KEY_ID"),
+        aws_secret_access_key=os.environ.get("SECRET_ACCESS_KEY"),
     )
 
 

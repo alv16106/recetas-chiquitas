@@ -79,13 +79,13 @@
 
     <h5>Imágenes</h5>
     {% if recipe and recipe.images.count() > 0 %}
-    <div class="mb-3">
+    <div class="mb-3 d-flex flex-wrap gap-2">
         {% for img in recipe.images %}
-        <div class="d-inline-block me-2 mb-2 position-relative">
+        <div class="d-flex flex-column align-items-center">
             <img src="{{ url_for('recipes.serve_image', recipe_id=recipe.id, filename=img.filename) }}"
                  class="img-thumbnail" style="height: 80px; width: auto;">
-            <label class="position-absolute top-0 start-0 m-1">
-                <input type="checkbox" name="remove_image" value="{{ img.id }}"> Quitar
+            <label class="form-check-label small mt-1">
+                <input type="checkbox" name="remove_image" value="{{ img.id }}" class="form-check-input"> Quitar
             </label>
         </div>
         {% endfor %}
